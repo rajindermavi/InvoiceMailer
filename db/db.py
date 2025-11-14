@@ -13,11 +13,17 @@ Usage example:
 
     init_db()  # safe to call multiple times
 
-    add_or_update_client("CLIENT123", "client@example.com", name="ACME Corp")
+    add_or_update_client(
+        head_office="ACME Corp",
+        customer_number="CLIENT123",
+        emails=["client@example.com"],
+    )
 
     record_invoice(
-        file_path=r"\\server\invoices\CLIENT123_2025-11-01_1234.pdf",
-        client_code="CLIENT123",
+        tax_invoice_no="INV-001",
+        customer_number="CLIENT123",
+        ship_name="SAFE MARINE",
+        invoice_file_path=r"\\server\invoices\CLIENT123_2025-11-01_1234.pdf",
         invoice_date="2025-11-01",
         period_month="2025-11",
     )
@@ -86,10 +92,31 @@ def init_db() -> None:
                 head_office         TEXT    NOT NULL,
                 customer_number     TEXT    NOT NULL UNIQUE,
                 emailforinvoice1    TEXT    NOT NULL,
-                emailforinvoice2    TEXT    NOT NULL,
-                emailforinvoice3    TEXT    NOT NULL,
-                emailforinvoice4    TEXT    NOT NULL,
-                emailforinvoice5    TEXT    NOT NULL
+                emailforinvoice2    TEXT,
+                emailforinvoice3    TEXT,
+                emailforinvoice4    TEXT,
+                emailforinvoice5    TEXT
+            );
+            """
+        )
+
+        # Table for soa
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS soa (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                head_office         TEXT    NOT NULL,
+                soa_file_path       TEXT    NOT NULL UNIQUE,
+                soa_date            TEXT,      -- ISO date string: YYYY-MM-DD
+                soa_period_month    TEXT,      -- e.g. '2025-11' for grouping/zipping
+                sent                INTEGER NOT NULL DEFAULT 0,  -- 0 = not sent, 1 = sent
+                sent_at             TEXT,      -- ISO datetime string when successfully sent
+                send_error          TEXT,      -- last error message, if any
+
+                FOREIGN KEY (head_office)
+                    REFERENCES clients (head_office)
+                    ON UPDATE CASCADE
+                    ON DELETE RESTRICT
             );
             """
         )
@@ -117,27 +144,6 @@ def init_db() -> None:
             """
         )
 
-        # Table for soa
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS soa (
-                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                head_office         TEXT    NOT NULL,
-                soa_file_path       TEXT    NOT NULL UNIQUE,
-                soa_date            TEXT,      -- ISO date string: YYYY-MM-DD
-                soa_period_month    TEXT,      -- e.g. '2025-11' for grouping/zipping
-                sent                INTEGER NOT NULL DEFAULT 0,  -- 0 = not sent, 1 = sent
-                sent_at             TEXT,      -- ISO datetime string when successfully sent
-                send_error          TEXT,      -- last error message, if any
-
-                FOREIGN KEY (head_office)
-                    REFERENCES clients (head_office)
-                    ON UPDATE CASCADE
-                    ON DELETE RESTRICT
-            );
-            """
-        )
-
         # Helpful indexes
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_invoices_sent ON invoices(sent);"
@@ -148,45 +154,110 @@ def init_db() -> None:
         )
 
 
-def add_or_update_client(client_code: str, email: str, name: Optional[str] = None) -> None:
+def add_or_update_client(
+    head_office: str,
+    customer_number: str,
+    emails: Iterable[Optional[str]],
+) -> None:
     """
-    Insert a new client or update an existing client's name/email.
+    Insert a new client or update an existing client's invoice recipients.
 
-    client_code: code you infer from filename or config, used to group invoices.
+    Pass up to five email addresses; only non-null/non-empty values are stored and
+    any remaining slots are set to NULL.
     """
+    email_list = [email for email in emails if email][:5]
+    if len(email_list) < 5:
+        email_list.extend([None] * (5 - len(email_list)))
+
     with get_conn() as conn:
         conn.execute(
             """
-            INSERT INTO clients (client_code, name, email)
-            VALUES (?, ?, ?)
-            ON CONFLICT(client_code) DO UPDATE SET
-                name  = COALESCE(excluded.name, clients.name),
-                email = excluded.email;
+            INSERT INTO clients (
+                head_office,
+                customer_number,
+                emailforinvoice1,
+                emailforinvoice2,
+                emailforinvoice3,
+                emailforinvoice4,
+                emailforinvoice5
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(customer_number) DO UPDATE SET
+                head_office = excluded.head_office,
+                emailforinvoice1 = excluded.emailforinvoice1,
+                emailforinvoice2 = excluded.emailforinvoice2,
+                emailforinvoice3 = excluded.emailforinvoice3,
+                emailforinvoice4 = excluded.emailforinvoice4,
+                emailforinvoice5 = excluded.emailforinvoice5;
             """,
-            (client_code, name, email),
+            (head_office, customer_number, *email_list),
         )
 
+def add_or_update_soa(
+    head_office: str,
+    soa_file_path: str,
+    soa_date: Optional[str] = None,
+    soa_period_month: Optional[str] = None,
+) -> None:
+    """
+    Insert or update a Statement of Account entry for the given client.
+
+    The referenced client must exist, otherwise the foreign-key constraint on
+    head_office will fail.
+    """
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT 1 FROM clients WHERE head_office = ? LIMIT 1;",
+            (head_office,),
+        )
+        client_exists = cur.fetchone() is not None
+        if not client_exists:
+            raise ValueError(f"Head office {head_office!r} does not exist.")
+
+        conn.execute(
+            """
+            INSERT INTO soa (head_office, soa_file_path, soa_date, soa_period_month)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(soa_file_path) DO UPDATE SET
+                head_office = excluded.head_office,
+                soa_date = excluded.soa_date,
+                soa_period_month = excluded.soa_period_month;
+            """,
+            (head_office, soa_file_path, soa_date, soa_period_month),
+        )
 
 def record_invoice(
-    file_path: str,
-    client_code: str,
+    tax_invoice_no: str,
+    customer_number: str,
+    ship_name: str,
+    inv_file_path: str,
     invoice_date: Optional[str] = None,  # "YYYY-MM-DD"
     period_month: Optional[str] = None,  # "YYYY-MM"
 ) -> None:
     """
-    Insert a new invoice record if it doesn't already exist.
-
-    If the invoice is already in the DB (same file_path), this is a no-op.
+    Insert a new invoice record if it doesn't already exist (same invoice file path).
     """
     with get_conn() as conn:
         conn.execute(
             """
             INSERT OR IGNORE INTO invoices (
-                client_code, file_path, invoice_date, period_month
+                tax_invoice_no,
+                customer_number,
+                ship_name,
+                inv_file_path,
+                invoice_date,
+                inv_period_month
             )
-            VALUES (?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?);
             """,
-            (client_code, file_path, invoice_date, period_month),
+            (
+                tax_invoice_no,
+                customer_number,
+                ship_name,
+                inv_file_path,
+                invoice_date,
+                period_month,
+            ),
         )
 
 
@@ -253,14 +324,26 @@ def mark_invoice_sent(
             )
 
 
-def get_client_email(client_code: str) -> Optional[str]:
+def get_client_email(customer_number: str) -> list[str]:
     """
-    Return the email address for a client_code, or None if not found.
+    Return all invoice recipient emails for a customer_number. Empty if not found.
     """
     with get_conn() as conn:
         cur = conn.execute(
-            "SELECT email FROM clients WHERE client_code = ?;",
-            (client_code,),
+            """
+            SELECT
+                emailforinvoice1,
+                emailforinvoice2,
+                emailforinvoice3,
+                emailforinvoice4,
+                emailforinvoice5
+            FROM clients
+            WHERE customer_number = ?;
+            """,
+            (customer_number,),
         )
         row = cur.fetchone()
-        return row["email"] if row else None
+        if row is None:
+            return []
+
+        return [email for email in row if email]
