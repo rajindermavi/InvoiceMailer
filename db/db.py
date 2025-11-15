@@ -30,7 +30,7 @@ Usage example:
 
     unsent = get_unsent_invoices()
     for inv in unsent:
-        print(inv["file_path"], inv["client_code"])
+        print(inv["inv_file_path"], inv["customer_number"])
 
 """
 
@@ -41,20 +41,13 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterable, Iterator, Optional
 
-# Location of the DB file: <project_root>/data/invoice_mailer.sqlite3
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
-DB_PATH = DATA_DIR / "invoice_mailer.sqlite3"
+from .db_path import get_db_path  # or from db import get_db_path if in same file
 
+DB_PATH: Path = get_db_path()
 
 def _connect() -> sqlite3.Connection:
-    """
-    Return a SQLite connection with Row objects so you can access columns by name.
-    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    # Enforce foreign keys
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
@@ -81,7 +74,7 @@ def get_conn() -> Iterator[sqlite3.Connection]:
 
 def init_db() -> None:
     """
-    Create tables if they don't exist. Safe to call every time your program starts.
+    Create tables if they don't exist.
     """
     with get_conn() as conn:
         # Table for clients
@@ -111,12 +104,7 @@ def init_db() -> None:
                 soa_period_month    TEXT,      -- e.g. '2025-11' for grouping/zipping
                 sent                INTEGER NOT NULL DEFAULT 0,  -- 0 = not sent, 1 = sent
                 sent_at             TEXT,      -- ISO datetime string when successfully sent
-                send_error          TEXT,      -- last error message, if any
-
-                FOREIGN KEY (head_office)
-                    REFERENCES clients (head_office)
-                    ON UPDATE CASCADE
-                    ON DELETE RESTRICT
+                send_error          TEXT       -- last error message, if any
             );
             """
         )
@@ -150,7 +138,7 @@ def init_db() -> None:
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_invoices_client_month "
-            "ON invoices(client_code, period_month);"
+            "ON invoices(customer_number, inv_period_month);"
         )
 
 
@@ -268,21 +256,21 @@ def get_unsent_invoices(
     """
     Return a list of unsent invoices (rows) as sqlite3.Row objects.
 
-    You can use row["file_path"], row["client_code"], etc.
+    You can use row["inv_file_path"], row["customer_number"], etc.
 
     Optional filters:
-        client_code  – only invoices for that client
+        client_code  – only invoices for that client (customer_number column)
         period_month – e.g. '2025-11'
     """
     query = "SELECT * FROM invoices WHERE sent = 0"
     params: list[object] = []
 
     if client_code is not None:
-        query += " AND client_code = ?"
+        query += " AND customer_number = ?"
         params.append(client_code)
 
     if period_month is not None:
-        query += " AND period_month = ?"
+        query += " AND inv_period_month = ?"
         params.append(period_month)
 
     with get_conn() as conn:
@@ -309,7 +297,7 @@ def mark_invoice_sent(
                 SET sent = 1,
                     sent_at = ?,
                     send_error = NULL
-                WHERE file_path = ?;
+                WHERE inv_file_path = ?;
                 """,
                 (sent_at, file_path),
             )
@@ -318,7 +306,7 @@ def mark_invoice_sent(
                 """
                 UPDATE invoices
                 SET send_error = ?
-                WHERE file_path = ?;
+                WHERE inv_file_path = ?;
                 """,
                 (error, file_path),
             )
