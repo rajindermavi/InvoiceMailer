@@ -1,10 +1,17 @@
-# main.py
+from datetime import datetime
 from config import (
     load_env_if_present,
     load_config,
     get_invoice_folder,
     get_soa_folder,
     get_client_directory,
+)
+from db.db import (
+    init_db,
+    add_or_update_client,
+    record_invoice,
+    get_unsent_invoices,
+    mark_invoice_sent,
 )
 
 def main():

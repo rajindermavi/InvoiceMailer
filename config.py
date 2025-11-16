@@ -5,8 +5,15 @@ import os
 import sys
 from pathlib import Path
 import configparser
+import re
+import json
 
 from app_env import APP_NAME, is_frozen_exe, get_app_env
+
+DEFAULT_DATE_PATTERNS = [
+    r"\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b",
+    r"\b\d{1,2}[-/]\d{1,2}[-/](?:\d{2}|\d{4})\b",
+]
 DEFAULT_CONFIG_CONTENT = """\
 # ===============================
 # InvoiceMailer Configuration
@@ -122,3 +129,70 @@ def get_client_directory(cfg: configparser.ConfigParser) -> Path:
     default = project_root() / "client_directory"
     path_str = cfg.get("paths", "client_directory", fallback=str(default))
     return _ensure_folder(path_str, fallback=default)
+
+def _parse_pattern_list(raw_value: str) -> list[str]:
+    raw = raw_value.strip()
+    if not raw:
+        return []
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed = None
+
+    # JSON array (preferred)
+    if isinstance(parsed, list):
+        patterns: list[str] = []
+        for item in parsed:
+            if item is None:
+                continue
+            text = str(item).strip()
+            if text:
+                patterns.append(text)
+        return patterns
+
+    # Fallback: multiline INI value, one pattern per line (trailing commas allowed)
+    multiline: list[str] = []
+    for line in raw.splitlines():
+        cleaned = line.strip().rstrip(",")
+        if cleaned:
+            multiline.append(cleaned)
+    if multiline:
+        return multiline
+
+    # Last resort: treat the whole value as a single pattern
+    return [raw]
+
+def get_date_pattern(
+    cfg: configparser.ConfigParser | None = None,
+) -> list[re.Pattern[str]]:
+    """
+    Return compiled regex patterns for invoice dates.
+
+    The list comes from [regex] invoice_date_patterns in the config file.
+    If that section/option is missing or invalid, defaults are returned.
+    """
+    if cfg is None:
+        cfg = load_config()
+
+    raw_value = ""
+    if cfg.has_section("regex"):
+        raw_value = cfg.get("regex", "invoice_date_patterns", fallback="").strip()
+        if not raw_value:
+            # Backward compatibility with older key name
+            raw_value = cfg.get("regex", "inv_date_patterns", fallback="")
+
+    pattern_strings = _parse_pattern_list(raw_value) or DEFAULT_DATE_PATTERNS
+
+    compiled: list[re.Pattern[str]] = []
+    for pattern in pattern_strings:
+        try:
+            compiled.append(re.compile(pattern))
+        except re.error:
+            # Skip invalid entries
+            continue
+
+    if not compiled:
+        compiled = [re.compile(p) for p in DEFAULT_DATE_PATTERNS]
+
+    return compiled
