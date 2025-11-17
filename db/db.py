@@ -37,6 +37,7 @@ Usage example:
 from __future__ import annotations
 
 import sqlite3
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterable, Iterator, Optional
@@ -99,6 +100,7 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS soa (
                 id                  INTEGER PRIMARY KEY AUTOINCREMENT,
                 head_office         TEXT    NOT NULL,
+                head_office_name    TEXT,
                 soa_file_path       TEXT    NOT NULL UNIQUE,
                 soa_date            TEXT,      -- ISO date string: YYYY-MM-DD
                 soa_period_month    TEXT,      -- e.g. '2025-11' for grouping/zipping
@@ -122,12 +124,7 @@ def init_db() -> None:
                 inv_period_month    TEXT,      -- e.g. '2025-11' for grouping/zipping
                 sent                INTEGER NOT NULL DEFAULT 0,  -- 0 = not sent, 1 = sent
                 sent_at             TEXT,      -- ISO datetime string when successfully sent
-                send_error          TEXT,      -- last error message, if any
-
-                FOREIGN KEY (customer_number)
-                    REFERENCES clients (customer_number)
-                    ON UPDATE CASCADE
-                    ON DELETE RESTRICT
+                send_error          TEXT       -- last error message, if any
             );
             """
         )
@@ -183,6 +180,7 @@ def add_or_update_client(
 
 def add_or_update_soa(
     head_office: str,
+    head_office_name: str,
     soa_file_path: str,
     soa_date: Optional[str] = None,
     soa_period_month: Optional[str] = None,
@@ -200,18 +198,24 @@ def add_or_update_soa(
         )
         client_exists = cur.fetchone() is not None
         if not client_exists:
-            raise ValueError(f"Head office {head_office!r} does not exist.")
+            # Proceed with insert but signal the missing client to the caller.
+            warnings.warn(
+                f"Head office {head_office!r} does not exist in clients table; "
+                "inserting SOA anyway.",
+                stacklevel=2,
+            )
 
         conn.execute(
             """
-            INSERT INTO soa (head_office, soa_file_path, soa_date, soa_period_month)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO soa (head_office, head_office_name, soa_file_path, soa_date, soa_period_month)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(soa_file_path) DO UPDATE SET
                 head_office = excluded.head_office,
+                head_office_name = excluded.head_office_name,
                 soa_date = excluded.soa_date,
                 soa_period_month = excluded.soa_period_month;
             """,
-            (head_office, soa_file_path, soa_date, soa_period_month),
+            (head_office,head_office_name, soa_file_path, soa_date, soa_period_month),
         )
 
 def record_invoice(
@@ -312,7 +316,7 @@ def mark_invoice_sent(
             )
 
 
-def get_client_email(customer_number: str) -> list[str]:
+def get_client_email(code: str,field: str) -> list[str]:
     """
     Return all invoice recipient emails for a customer_number. Empty if not found.
     """
@@ -326,12 +330,13 @@ def get_client_email(customer_number: str) -> list[str]:
                 emailforinvoice4,
                 emailforinvoice5
             FROM clients
-            WHERE customer_number = ?;
+            WHERE ? = ?;
             """,
-            (customer_number,),
+            (field, code),
         )
         row = cur.fetchone()
         if row is None:
             return []
 
         return [email for email in row if email]
+

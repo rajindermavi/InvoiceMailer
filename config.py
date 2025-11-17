@@ -115,6 +115,27 @@ def _ensure_folder(path_str: str, fallback: Path) -> Path:
             p.mkdir(parents=True, exist_ok=True)
     return p
 
+def _ensure_file(path_str: str, fallback: Path) -> Path:
+    """
+    Ensure a file path exists; if creation fails, use the fallback file.
+    """
+    p = Path(path_str).expanduser()
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        if p.exists() and not p.is_file():
+            raise IsADirectoryError(f"{p} is not a file")
+        if not p.exists():
+            p.touch()
+        return p
+    except Exception:
+        fb = fallback.expanduser()
+        fb.parent.mkdir(parents=True, exist_ok=True)
+        if fb.exists() and not fb.is_file():
+            raise IsADirectoryError(f"{fb} is not a file")
+        if not fb.exists():
+            fb.touch()
+        return fb
+
 def get_invoice_folder(cfg: configparser.ConfigParser) -> Path:
     default = project_root() / "invoices"
     path_str = cfg.get("paths", "invoice_folder", fallback=str(default))
@@ -126,9 +147,9 @@ def get_soa_folder(cfg: configparser.ConfigParser) -> Path:
     return _ensure_folder(path_str, fallback=default)
 
 def get_client_directory(cfg: configparser.ConfigParser) -> Path:
-    default = project_root() / "client_directory"
+    default = project_root() / "client_directory.xlsx"
     path_str = cfg.get("paths", "client_directory", fallback=str(default))
-    return _ensure_folder(path_str, fallback=default)
+    return _ensure_file(path_str, fallback=default)
 
 def _parse_pattern_list(raw_value: str) -> list[str]:
     raw = raw_value.strip()
@@ -177,10 +198,7 @@ def get_date_pattern(
 
     raw_value = ""
     if cfg.has_section("regex"):
-        raw_value = cfg.get("regex", "invoice_date_patterns", fallback="").strip()
-        if not raw_value:
-            # Backward compatibility with older key name
-            raw_value = cfg.get("regex", "inv_date_patterns", fallback="")
+        raw_value = cfg.get("regex", "date_patterns", fallback="").strip()
 
     pattern_strings = _parse_pattern_list(raw_value) or DEFAULT_DATE_PATTERNS
 
@@ -196,3 +214,16 @@ def get_date_pattern(
         compiled = [re.compile(p) for p in DEFAULT_DATE_PATTERNS]
 
     return compiled
+
+def get_file_regex(
+    cfg: configparser.ConfigParser | None = None,
+    type: str | None = None
+) -> re.Pattern[str]:
+    default = '^([^\s]+).pdf'
+    if cfg.has_section("regex"):
+        pattern_str = cfg.get("regex", f"{type}_file_pattern", fallback=str(default))
+    else:
+        pattern_str = default
+    
+    return re.compile(pattern_str, re.IGNORECASE)
+
