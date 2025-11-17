@@ -1,34 +1,33 @@
 ## To Do
 
-### Read date from invoice
-
-  - defaultExpanded: false
-
-### Add Invoices to DB
-
-  - defaultExpanded: false
-
-### Mailhog or similar tester
-
-  - defaultExpanded: false
-
 ### Mailing invoices
 
   - defaultExpanded: false
+    ```md
+    use smtp to mail invoices
+    ```
 
 ### Package final code
 
   - defaultExpanded: false
 
+## In Progress
+
+### Mailhog or similar tester
+
+  - defaultExpanded: false
+    ```md
+    set up test email environment
+    ```
+
 ### Package Invoices for mailing
 
   - defaultExpanded: false
+    ```md
+    zip files
+    ```
 
-### Parse filename for information
-
-  - defaultExpanded: false
-
-## In Progress
+## Done
 
 ### Database Initializer
 
@@ -46,5 +45,15 @@
 
   - defaultExpanded: false
 
-## Done
+### Read date from invoice
+
+  - defaultExpanded: false
+
+### Add Invoices to DB
+
+  - defaultExpanded: false
+
+### Parse filename for information
+
+  - defaultExpanded: false
 

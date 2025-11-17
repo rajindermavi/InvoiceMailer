@@ -76,7 +76,7 @@ instance/
 # Sensitive information (example)
 config.ini
 .env.secret
-
+*.zip
 *.[Pp][Dd][Ff]
 
 *sqlite3

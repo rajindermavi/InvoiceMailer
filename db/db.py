@@ -138,6 +138,7 @@ def init_db() -> None:
             "ON invoices(customer_number, inv_period_month);"
         )
 
+# SQL WRITE
 
 def add_or_update_client(
     head_office: str,
@@ -253,35 +254,6 @@ def record_invoice(
         )
 
 
-def get_unsent_invoices(
-    client_code: Optional[str] = None,
-    period_month: Optional[str] = None,
-) -> list[sqlite3.Row]:
-    """
-    Return a list of unsent invoices (rows) as sqlite3.Row objects.
-
-    You can use row["inv_file_path"], row["customer_number"], etc.
-
-    Optional filters:
-        client_code  – only invoices for that client (customer_number column)
-        period_month – e.g. '2025-11'
-    """
-    query = "SELECT * FROM invoices WHERE sent = 0"
-    params: list[object] = []
-
-    if client_code is not None:
-        query += " AND customer_number = ?"
-        params.append(client_code)
-
-    if period_month is not None:
-        query += " AND inv_period_month = ?"
-        params.append(period_month)
-
-    with get_conn() as conn:
-        cur = conn.execute(query, params)
-        return cur.fetchall()
-
-
 def mark_invoice_sent(
     file_path: str,
     sent_at: str,
@@ -315,28 +287,150 @@ def mark_invoice_sent(
                 (error, file_path),
             )
 
+# SQL READ
 
-def get_client_email(code: str,field: str) -> list[str]:
+def get_client_list(
+    client_type: Optional[str] = None 
+) -> list[str]:
+    
+    if client_type == 'head_office':
+        query = "SELECT distinct head_office FROM clients WHERE 1=1"
+        client_type = 'head_office'
+    
+    if client_type == 'customer_number':
+        query = "SELECT distinct customer_number FROM clients WHERE 1=1"
+        client_type = 'customer_number'
+
+    with get_conn() as conn:
+        cur = conn.execute(query)
+        return [r[client_type].strip() for r in cur.fetchall()]
+
+def get_client(
+    head_office: Optional[str] = None,
+    customer_number: Optional[str] = None
+) -> list[sqlite3.Row]:
+    query = "SELECT * FROM clients WHERE 1=1"
+    params: list[object] = []
+
+    if head_office is not None:
+        query += " AND head_office = ?"
+        params.append(head_office)
+
+    if customer_number is not None:
+        query += " AND customer_number = ?"
+        params.append(customer_number)
+
+    with get_conn() as conn:
+        cur = conn.execute(query, params)
+        return cur.fetchall()
+
+def get_invoices(
+    head_office: Optional[str] = None,
+    customer_number: Optional[str] = None,
+    period_month: Optional[str] = None,
+    sent: Optional[int] = None
+) -> list[sqlite3.Row]:
+    """
+    Return a list of invoices (rows) as sqlite3.Row objects.
+
+    Optional filters:
+        head_office – match by the client's head_office (joins clients)
+        customer_number  – only invoices for that client (customer_number column)
+        period_month – e.g. '2025-11'
+        sent
+    """
+    query = "SELECT inv.* FROM invoices inv"
+    params: list[object] = []
+
+    if head_office is not None:
+        # Trim both sides to survive trailing spaces in client data.
+        query += (
+            " LEFT JOIN clients c"
+            " ON TRIM(c.customer_number) = TRIM(inv.customer_number)"
+        )
+
+    query += " WHERE 1=1"
+
+    if head_office is not None:
+        query += " AND c.head_office = ?"
+        params.append(head_office.strip())
+
+    if customer_number is not None:
+        query += " AND TRIM(inv.customer_number) = ?"
+        params.append(customer_number.strip())
+
+    if period_month is not None:
+        query += " AND inv_period_month = ?"
+        params.append(period_month)
+
+    if sent is not None:
+        query += " AND inv.sent = ?"
+        params.append(sent)
+
+    with get_conn() as conn:
+        cur = conn.execute(query, params)
+        return cur.fetchall()
+
+def get_client_email(
+    head_office: Optional[str] = None,
+    customer_number: Optional[str] = None
+) -> list[str]:
     """
     Return all invoice recipient emails for a customer_number. Empty if not found.
+    Use head office only if emails are constant over head office.
     """
+
+    query = (
+        "SELECT "
+        "emailforinvoice1, emailforinvoice2, emailforinvoice3, "
+        "emailforinvoice4, emailforinvoice5 "
+        "FROM clients "
+        "WHERE 1 = 1"
+    )
+    params: list[object] = []
+
+    if head_office is not None:
+        query += " AND head_office = ?"
+        params.append(head_office)
+
+    if customer_number is not None:
+        query += " AND customer_number = ?"
+        params.append(customer_number)
+
     with get_conn() as conn:
-        cur = conn.execute(
-            """
-            SELECT
-                emailforinvoice1,
-                emailforinvoice2,
-                emailforinvoice3,
-                emailforinvoice4,
-                emailforinvoice5
-            FROM clients
-            WHERE ? = ?;
-            """,
-            (field, code),
-        )
+        cur = conn.execute(query, params)
         row = cur.fetchone()
-        if row is None:
-            return []
+    
+    return [email for email in row if email]
 
-        return [email for email in row if email]
+def get_soa_by_head_office(
+    head_office: Optional[str] = None,
+    head_office_name: Optional[str] = None,
+    period_month: Optional[str] = None,
+    sent: Optional[int] = None,
+) -> list[sqlite3.Row]:
+    """
+    Return SOA rows filtered by head office, name, month, or sent status.
+    """
+    query = "SELECT * FROM soa WHERE 1=1"
+    params: list[object] = []
 
+    if head_office is not None:
+        query += " AND TRIM(head_office) = ?"
+        params.append(head_office.strip())
+
+    if head_office_name is not None:
+        query += " AND TRIM(head_office_name) = ?"
+        params.append(head_office_name.strip())
+
+    if period_month is not None:
+        query += " AND soa_period_month = ?"
+        params.append(period_month)
+
+    if sent is not None:
+        query += " AND sent = ?"
+        params.append(sent)
+
+    with get_conn() as conn:
+        cur = conn.execute(query, params)
+        return cur.fetchall()

@@ -7,6 +7,7 @@ from pathlib import Path
 import configparser
 import re
 import json
+from typing import Dict
 
 from app_env import APP_NAME, is_frozen_exe, get_app_env
 
@@ -151,6 +152,8 @@ def get_client_directory(cfg: configparser.ConfigParser) -> Path:
     path_str = cfg.get("paths", "client_directory", fallback=str(default))
     return _ensure_file(path_str, fallback=default)
 
+# ---- regex patterns ----
+
 def _parse_pattern_list(raw_value: str) -> list[str]:
     raw = raw_value.strip()
     if not raw:
@@ -227,3 +230,12 @@ def get_file_regex(
     
     return re.compile(pattern_str, re.IGNORECASE)
 
+# ---- packaging and email ----
+
+def get_packaging(cfg: configparser.ConfigParser | None = None) -> Dict[str,str]:
+    default = 'head_office'
+    if cfg.has_section("packaging"):
+        agg = cfg.get("packaging", f"aggregate_by", fallback=str(default))
+    else:
+        agg = default
+    return {'agg':agg}
