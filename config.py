@@ -28,21 +28,34 @@ DEFAULT_CONFIG_CONTENT = """\
 # After saving, restart the application.
 
 [paths]
-# Folder where new invoices appear
-invoice_folder = D:\\Invoices
+invoice_folder = D:\Invoices
+soa_folder = D:\SOA
+client_directory = D:\client\client_directory.xlsx
 
-# Folder where SOA (statements of account) files live
-soa_folder = D:\\SOA
 
-# Folder where processed invoices should be archived
-client_directory = C:\\client\\client_directory.xlsx
+[packaging] 
+# aggregate_by: use head_office or customer_number
+aggregate_by = head_office
+
 
 [email]
-# Optional: override From: address
-from_address =
 
-# Optional: email subject prefix
-subject_prefix = [Invoices]
+subject_template = Please find attached the invoice(s) for {month_year}.
+body_template = Dear {contact_name},\n\nPlease find attached the invoice(s) for {month_year}.\n\nBest regards,\n{sender_name}
+sender_name = John Doe 
+reporter_emails = billing_reports@acme.com,
+    billing@acme.com
+
+
+[smtp]
+
+host = smtp.gmail.com
+port = 587
+username = acme_billing@gmail.com
+# Keep the password empty here; it will be prompted for securety on first run.
+password = 
+use_tls = true    
+from_address = billing@mycompany.com
 """
 
 try:
