@@ -1,5 +1,6 @@
 
 import os
+import sqlite3
 from pathlib import Path
 from datetime import datetime
 from config import (
@@ -28,12 +29,90 @@ from utility import extract_pdf_text
 from utility.read_xlsx import iter_xlsx_rows_as_dicts
 from utility.packaging import collect_files_to_zip
 from utility.email import ClientBatch, SMTPConfig, send_all_emails
-from utility.key_mgmt import get_or_prompt_secret
+from utility.key_mgmt import get_or_prompt_secret, delete_secret
+
+
+def parse_recipients(raw: str | None) -> list[str]:
+    """
+    Parse comma- or newline-separated recipient list from config.
+    """
+    if not raw:
+        return []
+    recipients: list[str] = []
+    for line in raw.splitlines():
+        for piece in line.split(","):
+            email = piece.strip()
+            if email:
+                recipients.append(email)
+    return recipients
+
+
+def _load_keys(path: Path, table: str, key_cols: tuple[str, ...]) -> set[tuple]:
+    """
+    Load a set of key tuples from the given SQLite DB/table.
+    """
+    with sqlite3.connect(path) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute(f"SELECT {', '.join(key_cols)} FROM {table};")
+        return {tuple(row[col] for col in key_cols) for row in cur.fetchall()}
+
+
+def backup_existing_db(db_path: Path):
+    """
+    If a DB already exists, move it aside and return the backup path + key snapshot.
+    """
+    if not db_path.exists():
+        return None, {"clients": set(), "invoices": set(), "soa": set()}
+
+    suffix = ".bak"
+    candidate = db_path.with_suffix(db_path.suffix + suffix)
+    counter = 1
+    while candidate.exists():
+        candidate = db_path.with_suffix(db_path.suffix + f"{suffix}{counter}")
+        counter += 1
+    db_path.rename(candidate)
+
+    old_keys = {
+        "clients": _load_keys(candidate, "clients", ("customer_number",)),
+        "invoices": _load_keys(candidate, "invoices", ("tax_invoice_no",)),
+        "soa": _load_keys(candidate, "soa", ("soa_file_path",)),
+    }
+    return candidate, old_keys
+
+
+def report_and_cleanup_old_db(old_db_path: Path | None, old_keys: dict[str, set], db_path: Path):
+    """
+    Report diff between new and old DB snapshots, then delete the backup.
+    """
+    if not old_db_path or not old_db_path.exists():
+        return
+
+    new_keys = {
+        "clients": _load_keys(db_path, "clients", ("customer_number",)),
+        "invoices": _load_keys(db_path, "invoices", ("tax_invoice_no",)),
+        "soa": _load_keys(db_path, "soa", ("soa_file_path",)),
+    }
+    report = (
+        "DB diff – added/removed:"
+        f" clients (+{len(new_keys['clients'] - old_keys['clients'])}"
+        f"/-{len(old_keys['clients'] - new_keys['clients'])}),"
+        f" invoices (+{len(new_keys['invoices'] - old_keys['invoices'])}"
+        f"/-{len(old_keys['invoices'] - new_keys['invoices'])}),"
+        f" soa (+{len(new_keys['soa'] - old_keys['soa'])}"
+        f"/-{len(old_keys['soa'] - new_keys['soa'])})"
+    )
+    old_db_path.unlink(missing_ok=True)
+    return report
 
 
 def db_mgmt(client_directory:Path,invoice_folder:Path,soa_folder:Path,inv_file_regex,soa_file_regex):
 
+    db_path = get_db_path()
+    old_db_path, old_keys = backup_existing_db(db_path)
+
+    # CREATE NEW DB
     init_db()
+    
 
     for row in iter_xlsx_rows_as_dicts(client_directory):
         head_office = row.get('Head Office','')
@@ -80,6 +159,8 @@ def db_mgmt(client_directory:Path,invoice_folder:Path,soa_folder:Path,inv_file_r
             soa_period_month
         )
 
+    return report_and_cleanup_old_db(old_db_path, old_keys, db_path)
+
 def prep_invoice_zips(client_list:list,period_str:str,agg:str):
     
     email_shipment = []
@@ -104,7 +185,7 @@ def prep_invoice_zips(client_list:list,period_str:str,agg:str):
         )
     return email_shipment
 
-def prep_and_send_emails(cfg,email_shipment, period_str:str):
+def prep_and_send_emails(cfg,email_shipment, period_str:str, change_report:str | None):
     smtp_username = cfg["smtp"].get("username", "invoicemailer")
     smtp_password = cfg["smtp"].get("password", "")
     if not smtp_password:
@@ -129,14 +210,17 @@ def prep_and_send_emails(cfg,email_shipment, period_str:str):
         from_addr=cfg['smtp']['from_address'],
     )
 
+    reporter_raw = cfg['email'].get('reporter_emails') or cfg['email'].get('reporter_email')
+
     email_template_kwargs = {
         'subject_template': cfg['email']['subject_template'],
         'body_template': cfg['email']['body_template'],
         'sender_name': cfg['email']['sender_name'],
         'period': period_str,
+        'reporter_emails': parse_recipients(reporter_raw),
     }
 
-    send_all_emails(client_batches,smtp_cfg,dry_run=False,**email_template_kwargs)
+    send_all_emails(client_batches,smtp_cfg,change_report,dry_run=False,**email_template_kwargs)
 
 def main():
     load_env_if_present()
@@ -155,7 +239,7 @@ def main():
     period_year = datetime.now().year if period_month != 12 else datetime.now().year - 1
     period_str = f"{period_year}-{period_month:02d}"
 
-    db_mgmt(
+    change_report = db_mgmt(
         client_directory,
         invoice_folder,
         soa_folder,
@@ -169,7 +253,7 @@ def main():
         period_str,
         agg
     )
-    prep_and_send_emails(cfg,email_shipment,period_str)
+    prep_and_send_emails(cfg,email_shipment,period_str, change_report)
 
 
 

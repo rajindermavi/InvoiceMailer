@@ -2,7 +2,7 @@ import smtplib
 from email.message import EmailMessage
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 DEFAULT_SUBJECT_TEMPLATE = "Invoices for {head_office_name}"
 DEFAULT_BODY_TEMPLATE = (
@@ -77,12 +77,26 @@ def build_email(batch: ClientBatch,
 def send_all_emails(
     batches: List[ClientBatch],
     smtp_conf: SMTPConfig,
+    change_report: Optional[str] = None,
     dry_run: bool = False,
     subject_template: str = DEFAULT_SUBJECT_TEMPLATE,
     body_template: str = DEFAULT_BODY_TEMPLATE,
     sender_name: str = "Your Company",  
     period: str = "last month",
+    reporter_emails: Optional[List[str]] = None,
 ) -> None:
+    reporter_emails = reporter_emails or []
+
+    def _get_body_text(msg: EmailMessage) -> str:
+        body_part = msg.get_body(preferencelist=("plain",))
+        return body_part.get_content() if body_part else ""
+
+    def _activity_entry(prefix: str, batch: ClientBatch, msg: EmailMessage) -> str:
+        return (
+            f"{prefix} {', '.join(batch.email_list)} with attachment {batch.zip_path}\n"
+            f"Subject: {msg['Subject']}\n"
+            f"Body:\n{_get_body_text(msg)}"
+        )
 
     if dry_run:
         # No network calls, just a sanity check
@@ -96,14 +110,44 @@ def send_all_emails(
             print(msg.get_body())  #
         return
 
+    activity_log: List[str] = []
+
     with smtplib.SMTP(smtp_conf.host, smtp_conf.port) as server:
+        # Advertised capabilities are only available after EHLO.
+        server.ehlo_or_helo_if_needed()
+
         if smtp_conf.use_tls:
-            server.starttls()
+            if server.has_extn("starttls"):
+                server.starttls()
+                server.ehlo()  # refresh capabilities after TLS handshake
+            else:
+                raise smtplib.SMTPNotSupportedError(
+                    "SMTP server does not advertise STARTTLS; check host/port or disable use_tls."
+                )
 
         if smtp_conf.username:
+            if not server.has_extn("auth"):
+                raise smtplib.SMTPNotSupportedError(
+                    "SMTP AUTH not supported by server; enable TLS for providers like Gmail or remove credentials."
+                )
             server.login(smtp_conf.username, smtp_conf.password)
 
         for batch in batches:
             msg = build_email(batch, smtp_conf, subject_template, body_template, sender_name, period)
             server.send_message(msg)
             print(f"Sent email to {batch.email_list} with {batch.zip_path}")
+            activity_log.append(_activity_entry("Sent to", batch, msg))
+
+        sep = "\n" + ("-" * 40) + "\n"
+        activity_log = f"Email sending activity for period: {period}" + sep.join(activity_log) + sep + (
+            f"\nChange Report:\n{change_report}\n" if change_report else "" 
+        )
+
+        if reporter_emails and activity_log:
+            report = EmailMessage()
+            report["From"] = smtp_conf.from_addr
+            report["To"] = ", ".join(reporter_emails)
+            report["Subject"] = f"Invoice mailer report for {period}"
+            report.set_content(activity_log)
+            server.send_message(report)
+            print(f"Sent activity report to {reporter_emails}")
