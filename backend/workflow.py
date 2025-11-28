@@ -222,7 +222,7 @@ def prep_and_send_emails(cfg,email_shipment, period_str:str, change_report:str |
 
     send_all_emails(client_batches,smtp_cfg,change_report,dry_run=False,**email_template_kwargs)
 
-def main():
+def run_workflow():
     load_env_if_present()
     cfg = load_config()
 
@@ -258,4 +258,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_workflow()

@@ -1,31 +1,18 @@
 ## To Do
 
-### Mailing invoices
-
-  - defaultExpanded: false
-    ```md
-    use smtp to mail invoices
-    ```
-
 ### Package final code
 
   - defaultExpanded: false
 
 ## In Progress
 
-### Mailhog or similar tester
+### GUI
 
   - defaultExpanded: false
-    ```md
-    set up test email environment
-    ```
 
-### Package Invoices for mailing
+### move config data
 
   - defaultExpanded: false
-    ```md
-    zip files
-    ```
 
 ## Done
 
@@ -56,4 +43,25 @@
 ### Parse filename for information
 
   - defaultExpanded: false
+
+### Package Invoices for mailing
+
+  - defaultExpanded: false
+    ```md
+    zip files
+    ```
+
+### Mailhog or similar tester
+
+  - defaultExpanded: false
+    ```md
+    set up test email environment
+    ```
+
+### Mailing invoices
+
+  - defaultExpanded: false
+    ```md
+    use smtp to mail invoices
+    ```
 
