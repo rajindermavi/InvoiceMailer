@@ -21,7 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app_env import APP_NAME, DB_FILENAME, get_app_env, is_frozen_exe
+from backend.config import APP_NAME, DB_FILENAME, get_app_env, is_frozen_exe
 
 # Environment variables used:
 #   APP_ENV     = "production" or "development" (optional)

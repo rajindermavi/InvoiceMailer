@@ -24,7 +24,6 @@ from backend.utility import extract_pdf_text
 from backend.utility.read_xlsx import iter_xlsx_rows_as_dicts
 from backend.utility.packaging import collect_files_to_zip
 from backend.utility.email import ClientBatch, SMTPConfig, send_all_emails
-from backend.utility.key_mgmt import get_or_prompt_secret, delete_secret
 
 
 def parse_recipients(raw: str | None) -> list[str]:
@@ -183,12 +182,6 @@ def prep_invoice_zips(client_list:list,period_str:str,agg:str):
 def prep_and_send_emails(smtp_config,email_shipment, period_str:str, change_report:str | None):
     smtp_username = smtp_config.get('username', "")
     smtp_password = smtp_config.get('password', "")
-    if not smtp_password:
-        smtp_password = get_or_prompt_secret(
-            "smtp_password",
-            username=smtp_username or "invoicemailer",
-            prompt=f"Enter SMTP password for {smtp_username or 'invoicemailer'}: ",
-        )
 
     client_batches = [ClientBatch(
         zip_path=Path(r["zip_path"]),
@@ -204,6 +197,8 @@ def prep_and_send_emails(smtp_config,email_shipment, period_str:str, change_repo
         use_tls=smtp_config.get('use_tls', True),
         from_addr=smtp_config['from_addr'],
     )
+
+    reporter_emails = smtp_config.get('reporter_emails',[])
 
     reporter_raw = cfg['email'].get('reporter_emails') or cfg['email'].get('reporter_email')
 
