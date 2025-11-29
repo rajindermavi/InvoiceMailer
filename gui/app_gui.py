@@ -1,19 +1,20 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import threading
 
 from backend.workflow import run_workflow
-from config import SecureConfig
+from backend.config import SecureConfig
 from gui.notebook.settings_gui import SettingsTab
-from gui.utility import load_settings
+from gui.notebook.email_gui import EmailSettingsTab
+from gui.utility import load_settings, persist_settings, settings_from_vars
 
 
-class InvoiceMailerGUI(SettingsTab):
+class InvoiceMailerGUI(SettingsTab, EmailSettingsTab):
 
     def __init__(self, root, secure_config: SecureConfig | None = None):
         self.root = root
         self.secure_config = secure_config or SecureConfig()
-        self.settings = load_settings(self.secure_config)
+        self.settings = self.load_settings_from_store()
         self.root.title("Invoice Mailer")
         self.root.geometry("900x650")
 
@@ -24,11 +25,13 @@ class InvoiceMailerGUI(SettingsTab):
         self.notebook.pack(fill="both", expand=True)
 
         self.tab_settings = ttk.Frame(self.notebook)
+        self.tab_email = ttk.Frame(self.notebook)
         self.tab_scan = ttk.Frame(self.notebook)
         self.tab_preview = ttk.Frame(self.notebook)
         self.tab_send = ttk.Frame(self.notebook)
 
         self.notebook.add(self.tab_settings, text="Settings")
+        self.notebook.add(self.tab_email, text="Email Settings")
         self.notebook.add(self.tab_scan, text="Scan")
         self.notebook.add(self.tab_preview, text="Preview")
         self.notebook.add(self.tab_send, text="Send & Logs")
@@ -37,9 +40,32 @@ class InvoiceMailerGUI(SettingsTab):
         # Build UI for each tab
         # -----------------------------
         self.build_settings_tab()
+        self.build_email_tab()
         self.build_scan_tab()
         self.build_preview_tab()
         self.build_send_tab()
+
+    # ---- Settings helpers shared across tabs ----
+    def load_settings_from_store(self):
+        self.settings = load_settings(self.secure_config)
+        return self.settings
+
+    def persist_settings_to_store(self, settings):
+        persist_settings(self.secure_config, settings)
+        self.settings = dict(settings)
+
+    def save_settings(self):
+        base_settings = settings_from_vars(self._settings_vars) if hasattr(self, "_settings_vars") else {}
+        email_settings = settings_from_vars(self._email_settings_vars) if hasattr(self, "_email_settings_vars") else {}
+        if hasattr(self, "body_template_text"):
+            email_settings["body_template"] = self.body_template_text.get("1.0", "end").strip()
+        new_settings = {**base_settings, **email_settings}
+        self.persist_settings_to_store(new_settings)
+        if hasattr(self, "update_current_settings_display"):
+            self.update_current_settings_display()
+        if hasattr(self, "update_email_settings_display"):
+            self.update_email_settings_display()
+        messagebox.showinfo("Saved", "Settings saved successfully!")
 
     # ------------------------------------------------------------
     # SCAN TAB

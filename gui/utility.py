@@ -1,8 +1,21 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, Mapping
 
 from backend.config import SecureConfig
+
+DEFAULT_SUBJECT_TEMPLATE = "Invoice Statement for {month}-{year}"
+DEFAULT_BODY_TEMPLATE = (
+    "Dear {contact_name},\n\n"
+    "Please find attached the invoice statement for {month}-{year}.\n\n"
+    "Best regards,\n"
+    "{sender_name}"
+)
+DEFAULT_SENDER_NAME = "Billing Department"
+REPORTER_EMAILS_PLACEHOLDER = []
+DEFAULT_PERIOD_MONTH = datetime.now().month - 1 or 12
+DEFAULT_PERIOD_YEAR = datetime.now().year if DEFAULT_PERIOD_MONTH != 12 else datetime.now().year - 1
 
 # Default values used when no encrypted config is present.
 DEFAULT_SETTINGS: Dict[str, Any] = {
@@ -18,6 +31,12 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "smtp_password": "",
     "smtp_from": "",
     "smtp_use_tls": True,
+    "subject_template": DEFAULT_SUBJECT_TEMPLATE,
+    "body_template": DEFAULT_BODY_TEMPLATE,
+    "sender_name": DEFAULT_SENDER_NAME,
+    "reporter_emails": REPORTER_EMAILS_PLACEHOLDER,
+    "email_month": DEFAULT_PERIOD_MONTH,
+    "email_year": DEFAULT_PERIOD_YEAR,
 }
 
 

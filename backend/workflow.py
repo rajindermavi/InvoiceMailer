@@ -4,13 +4,8 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 from backend.config import (
-    load_env_if_present,
-    load_config,
-    get_invoice_folder,
-    get_soa_folder,
-    get_client_directory,
     get_file_regex,
-    get_packaging,
+    get_date_regex
 )
 from backend.db.db_path import get_db_path
 from backend.db.db import (
@@ -185,9 +180,9 @@ def prep_invoice_zips(client_list:list,period_str:str,agg:str):
         )
     return email_shipment
 
-def prep_and_send_emails(cfg,email_shipment, period_str:str, change_report:str | None):
-    smtp_username = cfg["smtp"].get("username", "invoicemailer")
-    smtp_password = cfg["smtp"].get("password", "")
+def prep_and_send_emails(smtp_config,email_shipment, period_str:str, change_report:str | None):
+    smtp_username = smtp_config.get('username', "")
+    smtp_password = smtp_config.get('password', "")
     if not smtp_password:
         smtp_password = get_or_prompt_secret(
             "smtp_password",
@@ -202,12 +197,12 @@ def prep_and_send_emails(cfg,email_shipment, period_str:str, change_report:str |
     ) for r in email_shipment]
 
     smtp_cfg = SMTPConfig(
-        host=cfg['smtp']['host'],
-        port=cfg['smtp']['port'],
+        host=smtp_config['host'],
+        port=smtp_config['port'],
         username=smtp_username,
         password=smtp_password,
-        use_tls=cfg.getboolean('smtp','use_tls',fallback=True),
-        from_addr=cfg['smtp']['from_address'],
+        use_tls=smtp_config.get('use_tls', True),
+        from_addr=smtp_config['from_addr'],
     )
 
     reporter_raw = cfg['email'].get('reporter_emails') or cfg['email'].get('reporter_email')
@@ -222,22 +217,19 @@ def prep_and_send_emails(cfg,email_shipment, period_str:str, change_report:str |
 
     send_all_emails(client_batches,smtp_cfg,change_report,dry_run=False,**email_template_kwargs)
 
-def run_workflow():
-    load_env_if_present()
-    cfg = load_config()
+def run_workflow(
+        invoice_folder: Path | None = None,
+        soa_folder: Path | None = None,
+        client_directory: Path | None = None,
+        agg: str = "head_office",
+        period_month: str | None = None,
+        period_year: str | None = None,
+        smtp_config: dict | None = None,
+):
 
-    invoice_folder = get_invoice_folder(cfg)
-    soa_folder = get_soa_folder(cfg)
-    client_directory = get_client_directory(cfg)
-    inv_file_regex = get_file_regex(cfg,'inv')
-    soa_file_regex = get_file_regex(cfg,'soa')
-
-    packaging = get_packaging(cfg)
-    agg = packaging['agg']
-
-    period_month = datetime.now().month - 1 or 12
-    period_year = datetime.now().year if period_month != 12 else datetime.now().year - 1
     period_str = f"{period_year}-{period_month:02d}"
+    inv_file_regex = get_file_regex('invoice')
+    soa_file_regex = get_file_regex('soa')
 
     change_report = db_mgmt(
         client_directory,
@@ -253,7 +245,7 @@ def run_workflow():
         period_str,
         agg
     )
-    prep_and_send_emails(cfg,email_shipment,period_str, change_report)
+    prep_and_send_emails(smtp_config,email_shipment,period_str, change_report)
 
 
 

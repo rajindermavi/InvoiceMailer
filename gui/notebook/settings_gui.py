@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog
 
-from gui.utility import (
-    apply_settings_to_vars,
-    persist_settings,
-    settings_from_vars,
-)
+from gui.utility import apply_settings_to_vars, settings_from_vars
 
 
 class SettingsTab:
@@ -79,8 +75,8 @@ class SettingsTab:
         self._settings_vars = {
             "invoice_folder": self.invoice_folder_var,
             "soa_folder": self.soa_folder_var,
-            "output_folder": self.output_folder_var,
             "client_file": self.client_file_var,
+            "output_folder": self.output_folder_var,
             "aggregate_by": self.aggregate_by_var,
             "mode": self.mode_var,
             "smtp_host": self.smtp_host_var,
@@ -170,11 +166,7 @@ class SettingsTab:
             self.client_file_var.set(file_path)
 
     def save_settings(self):
-        self.settings = settings_from_vars(self._settings_vars)
-        persist_settings(self.secure_config, self.settings)
-        self.update_current_settings_display()
-
-        messagebox.showinfo("Saved", "Settings saved successfully!")
+        raise NotImplementedError("save_settings should be implemented by the parent class.")
 
     def update_current_settings_display(self):
         self.settings = settings_from_vars(self._settings_vars)

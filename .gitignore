@@ -80,3 +80,8 @@ config.ini
 *.[Pp][Dd][Ff]
 
 *sqlite3
+
+
+*.key
+*.crt
+*.enc   
