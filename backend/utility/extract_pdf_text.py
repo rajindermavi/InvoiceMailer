@@ -7,13 +7,11 @@ from dateutil import parser as dateparser
 import fitz  # PyMuPDF
 
 from backend.config import (
-    get_date_pattern,
-    load_config,
-    load_env_if_present,
+    get_date_regex,
+    pdf_rect_settings,
+    page_index,
+    try_ocr_if_needed,
 )
-
-load_env_if_present()
-cfg = load_config()
 
 try:
     import pytesseract
@@ -24,26 +22,15 @@ except Exception:
     OCR_LIB_AVAILABLE = False
 
 PdfBox = Tuple[float, float, float, float]
-DEFAULT_BOXES_PCT: dict[str, PdfBox] = {
-    "inv_date":     (0.01, 0.3275, 0.12, 0.34),
-    "soa_date":     (0.72, 0.0775, 0.815, 0.092),
-    "soa_office":   (0.85, 0.0775, 0.92, 0.092),
-}
-DEFAULT_BOXES_POINTS: dict[str, PdfBox] = {}
-
-# ---- PROCESSING ----
-DEFAULT_USE_PERCENT = cfg.getboolean("pdf_rect", "use_percent", fallback=True)
-PAGE_INDEX = cfg.getint("processing", "page_index", fallback=0)
-TRY_OCR_IF_NEEDED = cfg.getboolean("processing", "try_ocr_if_needed", fallback=True)
 
 # ---- REGEX ----
 DATE_PATTERNS: List[re.Pattern[str]] = [
-    re.compile(p.pattern, p.flags | re.IGNORECASE) for p in get_date_pattern(cfg)
+    re.compile(p.pattern, p.flags | re.IGNORECASE) for p in get_date_regex()
 ]
 
 # ------------- HELPERS ------------- #
 
-def percent_rect_to_points(page: fitz.Page, pct_box: PdfBox) -> fitz.Rect:
+def _percent_rect_to_points(page: fitz.Page, pct_box: PdfBox) -> fitz.Rect:
     """
         convert percent box to point box
     """
@@ -54,58 +41,21 @@ def percent_rect_to_points(page: fitz.Page, pct_box: PdfBox) -> fitz.Rect:
     y1 = pct_box[3] * height
     return fitz.Rect(x0, y0, x1, y1)
 
-def _read_box_from_config(field: str, use_percent: bool) -> Optional[PdfBox]:
+def _read_box_from_config(field: str) -> Optional[PdfBox]:
     """
         fetch box dimensions from config file
     """
-    suffix = "_pct" if use_percent else ""
-    key_prefix = f"{field}_"
     coords: List[float] = []
     for coord in ("x0", "y0", "x1", "y1"):
-        option = f"{key_prefix}{coord}{suffix}"
-        if not cfg.has_option("pdf_rect", option):
-            return None
-        coords.append(cfg.getfloat("pdf_rect", option))
+        pct = pdf_rect_settings.get(field,{}).get(f"{coord}_pct")
+        coords.append(pct)
     return tuple(coords)  # type: ignore[return-value]
-
-def _resolve_box(
-    field: str,
-    use_percent: Optional[bool] = None,
-    percentage_box: Optional[PdfBox] = None,
-    points_box: Optional[PdfBox] = None,
-) -> tuple[PdfBox, bool]:
-    """
-    Resolve the box for a given field from overrides or config.
-
-    Preference: explicit args -> config -> defaults. Raises if nothing is found.
-    """
-    use_pct = DEFAULT_USE_PERCENT if use_percent is None else use_percent
-
-    if use_pct:
-        if percentage_box is not None:
-            return percentage_box, True
-        if (cfg_box := _read_box_from_config(field, use_percent=True)) is not None:
-            return cfg_box, True
-        if field in DEFAULT_BOXES_PCT:
-            return DEFAULT_BOXES_PCT[field], True
-    else:
-        if points_box is not None:
-            return points_box, False
-        if (cfg_box := _read_box_from_config(field, use_percent=False)) is not None:
-            return cfg_box, False
-        if field in DEFAULT_BOXES_POINTS:
-            return DEFAULT_BOXES_POINTS[field], False
-
-    raise ValueError(
-        f"No coordinates found for '{field}' "
-        f"(use_percent={use_pct}). Configure in [pdf_rect]."
-    )
 
 def extract_text_from_region(page: fitz.Page, rect: fitz.Rect) -> str:
     return page.get_text("text", clip=rect)
 
 def ocr_text_from_region(page: fitz.Page, rect: fitz.Rect, scale: float = 2.0) -> str:
-    if not (TRY_OCR_IF_NEEDED and OCR_LIB_AVAILABLE):
+    if not try_ocr_if_needed or not OCR_LIB_AVAILABLE:
         return ""
     mat = fitz.Matrix(scale, scale)
     pix = page.get_pixmap(matrix=mat, clip=rect, alpha=False)
@@ -132,11 +82,7 @@ def _dedupe_preserve_order(texts: List[str]) -> List[str]:
 def extract_pdf_text(
     pdf_path: Path,
     field: str,
-    *,
-    page_index: int = PAGE_INDEX,
-    use_percent: Optional[bool] = None,
-    percentage_box: Optional[PdfBox] = None,
-    points_box: Optional[PdfBox] = None,
+    page_index: int = page_index,
     padding: float = 10.0,
 ) -> str:
     """
@@ -146,10 +92,10 @@ def extract_pdf_text(
     doc = fitz.open(pdf_path)
     try:
         page = doc[page_index]
-        box, use_pct = _resolve_box(
-            field, use_percent=use_percent, percentage_box=percentage_box, points_box=points_box
-        )
-        rect = percent_rect_to_points(page, box) if use_pct else fitz.Rect(*box)
+        
+        box = _read_box_from_config(field)
+
+        rect = _percent_rect_to_points(page, box)
 
         texts: List[str] = []
 
@@ -200,11 +146,7 @@ def normalize_first_date(dates: List[str]) -> Optional[str]:
 def extract_pdf_date(
     pdf_path: Path,
     field: str,
-    *,
-    page_index: int = PAGE_INDEX,
-    use_percent: Optional[bool] = None,
-    percentage_box: Optional[PdfBox] = None,
-    points_box: Optional[PdfBox] = None,
+    page_index: int = page_index,
     padding: float = 10.0,
 ) -> Optional[str]:
     """
@@ -217,9 +159,6 @@ def extract_pdf_date(
         pdf_path,
         field,
         page_index=page_index,
-        use_percent=use_percent,
-        percentage_box=percentage_box,
-        points_box=points_box,
         padding=padding,
     )
 
