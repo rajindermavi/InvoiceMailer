@@ -194,7 +194,7 @@ class SecureConfig:
 
 # ---- regex patterns ----
 
-def get_date_pattern() -> list[re.Pattern[str]]:
+def get_date_regex() -> list[re.Pattern[str]]:
     """
     Return compiled regex patterns for invoice dates.
 
