@@ -31,21 +31,26 @@ file_patterns = {
 ##### PDF EXTRACTION SETTINGS #####
 
 # Percent-based box (0–1), top-left (x0, y0) to bottom-right (x1, y1)
-inv_date_x0_pct = 0.01
-inv_date_y0_pct = 0.3275
-inv_date_x1_pct = 0.12
-inv_date_y1_pct = 0.34
-
-soa_date_x0_pct = 0.72
-soa_date_y0_pct = 0.0775
-soa_date_x1_pct = 0.815
-soa_date_y1_pct = 0.092
-
-soa_office_x0_pct = 0.85
-soa_office_y0_pct = 0.0775
-soa_office_x1_pct = 0.92
-soa_office_y1_pct = 0.092
-
+pdf_rect_settings: Dict[str, Dict[str, float]] = {
+    'inv_date': {
+        'x0_pct': 0.01,
+        'y0_pct': 0.3275,
+        'x1_pct': 0.12,
+        'y1_pct': 0.34,
+    },
+    'soa_date': {   
+        'x0_pct': 0.72,
+        'y0_pct': 0.0775,
+        'x1_pct': 0.815,
+        'y1_pct': 0.092,
+    },
+    'soa_office': {
+        'x0_pct': 0.85,
+        'y0_pct': 0.0775,
+        'x1_pct': 0.92,
+        'y1_pct': 0.092,
+    }
+}
 #[processing]
 # Which page index to read (0 = first page)
 page_index = 0
