@@ -169,7 +169,10 @@ class SettingsTab:
         raise NotImplementedError("save_settings should be implemented by the parent class.")
 
     def update_current_settings_display(self):
-        self.settings = settings_from_vars(self._settings_vars)
+        # Merge the current tab values into the existing settings so we don't
+        # clobber email-related defaults before the Email tab is built.
+        base_settings = settings_from_vars(self._settings_vars)
+        self.settings = {**getattr(self, "settings", {}), **base_settings}
 
         self.invoice_folder_label_var.set(f"Invoice Folder: {self.settings['invoice_folder'] or '(empty)'}")
         self.soa_folder_label_var.set(f"SOA Folder: {self.settings['soa_folder'] or '(empty)'}")

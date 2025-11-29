@@ -17,3 +17,5 @@ keyring==25.5.0
 cryptography==46.0.3
 
 pywin32>=311; platform_system == "Windows"
+
+python-dateutil == 2.9.0.post0

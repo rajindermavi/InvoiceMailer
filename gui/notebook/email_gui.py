@@ -7,6 +7,20 @@ from datetime import datetime
 from gui.utility import apply_settings_to_vars
 
 
+class _TextAdapter:
+    """Minimal adapter to let apply/settings helpers work with a Text widget."""
+
+    def __init__(self, widget: tk.Text):
+        self.widget = widget
+
+    def set(self, value: str) -> None:
+        self.widget.delete("1.0", "end")
+        self.widget.insert("1.0", value or "")
+
+    def get(self) -> str:
+        return self.widget.get("1.0", "end").strip()
+
+
 class EmailSettingsTab:
     """
     Mixin for the Email Settings tab.
@@ -49,21 +63,21 @@ class EmailSettingsTab:
         ttk.Combobox(frame, textvariable=self.email_month_var, values=[str(i) for i in range(1, 13)], width=8).grid(row=4, column=1, sticky="w", padx=5, pady=2)
 
         current_year = datetime.now().year
-        year_options = [str(y) for y in range(current_year - 2, current_year + 6)]
+        year_options = [str(y) for y in range(current_year - 7, current_year + 3)]
         ttk.Label(frame, text="Year:").grid(row=5, column=0, sticky="w")
         self.email_year_var = tk.StringVar()
         ttk.Combobox(frame, textvariable=self.email_year_var, values=year_options, width=8).grid(row=5, column=1, sticky="w", padx=5, pady=2)
 
+        body_template_adapter = _TextAdapter(self.body_template_text)
         self._email_settings_vars = {
             "subject_template": self.subject_template_var,
+            "body_template": body_template_adapter,
             "sender_name": self.sender_name_var,
             "reporter_emails": self.reporter_emails_var,
             "email_month": self.email_month_var,
             "email_year": self.email_year_var,
         }
         apply_settings_to_vars(self._email_settings_vars, self.settings)
-        self.body_template_text.delete("1.0", "end")
-        self.body_template_text.insert("1.0", self.settings.get("body_template", ""))
 
         ttk.Button(container, text="Save Email Settings", command=self.save_settings).pack(fill="x", padx=5, pady=(0, 10))
 

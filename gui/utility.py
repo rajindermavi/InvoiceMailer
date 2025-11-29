@@ -49,6 +49,9 @@ def load_settings(secure_config: SecureConfig) -> Dict[str, Any]:
     for key, value in (data or {}).items():
         if key in merged:
             merged[key] = value
+    # Guard against persisted empty strings for email templates.
+    merged["subject_template"] = merged.get("subject_template") or DEFAULT_SUBJECT_TEMPLATE
+    merged["body_template"] = merged.get("body_template") or DEFAULT_BODY_TEMPLATE
     return merged
 
 

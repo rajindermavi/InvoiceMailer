@@ -26,21 +26,6 @@ from backend.utility.packaging import collect_files_to_zip
 from backend.utility.email import ClientBatch, SMTPConfig, send_all_emails
 
 
-def parse_recipients(raw: str | None) -> list[str]:
-    """
-    Parse comma- or newline-separated recipient list from config.
-    """
-    if not raw:
-        return []
-    recipients: list[str] = []
-    for line in raw.splitlines():
-        for piece in line.split(","):
-            email = piece.strip()
-            if email:
-                recipients.append(email)
-    return recipients
-
-
 def _load_keys(path: Path, table: str, key_cols: tuple[str, ...]) -> set[tuple]:
     """
     Load a set of key tuples from the given SQLite DB/table.
@@ -179,15 +164,15 @@ def prep_invoice_zips(client_list:list,period_str:str,agg:str):
         )
     return email_shipment
 
-def prep_and_send_emails(smtp_config,email_shipment, period_str:str, change_report:str | None):
+def prep_and_send_emails(smtp_config,email_setup,email_shipment, period_str:str, change_report:str | None):
     smtp_username = smtp_config.get('username', "")
     smtp_password = smtp_config.get('password', "")
 
     client_batches = [ClientBatch(
-        zip_path=Path(r["zip_path"]),
-        email_list=r["email_list"],
-        head_office_name=r["head_office_name"],
-    ) for r in email_shipment]
+        zip_path=Path(es.get("zip_path")),
+        email_list=es.get("email_list"),
+        head_office_name=es.get("head_office_name"),
+    ) for es in email_shipment]
 
     smtp_cfg = SMTPConfig(
         host=smtp_config['host'],
@@ -198,16 +183,12 @@ def prep_and_send_emails(smtp_config,email_shipment, period_str:str, change_repo
         from_addr=smtp_config['from_addr'],
     )
 
-    reporter_emails = smtp_config.get('reporter_emails',[])
-
-    reporter_raw = cfg['email'].get('reporter_emails') or cfg['email'].get('reporter_email')
-
     email_template_kwargs = {
-        'subject_template': cfg['email']['subject_template'],
-        'body_template': cfg['email']['body_template'],
-        'sender_name': cfg['email']['sender_name'],
+        'subject_template': email_setup.get('subject_template',''),
+        'body_template': email_setup.get('body_template',''),
+        'sender_name': email_setup.get('sender_name',''),
         'period': period_str,
-        'reporter_emails': parse_recipients(reporter_raw),
+        'reporter_emails': email_setup.get('reporter_emails',[]),
     }
 
     send_all_emails(client_batches,smtp_cfg,change_report,dry_run=False,**email_template_kwargs)
@@ -220,6 +201,7 @@ def run_workflow(
         period_month: str | None = None,
         period_year: str | None = None,
         smtp_config: dict | None = None,
+        email_setup: dict | None = None,
 ):
 
     period_str = f"{period_year}-{period_month:02d}"
@@ -240,7 +222,7 @@ def run_workflow(
         period_str,
         agg
     )
-    prep_and_send_emails(smtp_config,email_shipment,period_str, change_report)
+    prep_and_send_emails(smtp_config,email_setup,email_shipment,period_str, change_report)
 
 
 
