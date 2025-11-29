@@ -1,13 +1,19 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk
 import threading
 
 from backend.workflow import run_workflow
+from config import SecureConfig
+from gui.notebook.settings_gui import SettingsTab
+from gui.utility import load_settings
 
-class InvoiceMailerGUI:
 
-    def __init__(self, root):
+class InvoiceMailerGUI(SettingsTab):
+
+    def __init__(self, root, secure_config: SecureConfig | None = None):
         self.root = root
+        self.secure_config = secure_config or SecureConfig()
+        self.settings = load_settings(self.secure_config)
         self.root.title("Invoice Mailer")
         self.root.geometry("900x650")
 
@@ -34,58 +40,6 @@ class InvoiceMailerGUI:
         self.build_scan_tab()
         self.build_preview_tab()
         self.build_send_tab()
-
-    # ------------------------------------------------------------
-    # SETTINGS TAB
-    # ------------------------------------------------------------
-    def build_settings_tab(self):
-        frame = ttk.LabelFrame(self.tab_settings, text="Configuration")
-        frame.pack(fill="both", expand=True, padx=10, pady=10)
-
-        # Invoice folder
-        ttk.Label(frame, text="Invoice Folder:").grid(row=0, column=0, sticky="w")
-        self.invoice_folder_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=self.invoice_folder_var, width=50).grid(row=0, column=1, padx=5)
-        ttk.Button(frame, text="Browse", command=self.pick_invoice_folder).grid(row=0, column=2, padx=5)
-
-        # Output ZIP folder
-        ttk.Label(frame, text="ZIP Output Folder:").grid(row=1, column=0, sticky="w")
-        self.output_folder_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=self.output_folder_var, width=50).grid(row=1, column=1, padx=5)
-        ttk.Button(frame, text="Browse", command=self.pick_output_folder).grid(row=1, column=2, padx=5)
-
-        # Client list
-        ttk.Label(frame, text="Client List File:").grid(row=2, column=0, sticky="w")
-        self.client_file_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=self.client_file_var, width=50).grid(row=2, column=1, padx=5)
-        ttk.Button(frame, text="Browse", command=self.pick_client_file).grid(row=2, column=2, padx=5)
-
-        # Mode (dev/prod)
-        ttk.Label(frame, text="Mode:").grid(row=3, column=0, sticky="w")
-        self.mode_var = tk.StringVar(value="prod")
-        ttk.Combobox(frame, textvariable=self.mode_var, values=["dev", "prod"], width=10).grid(row=3, column=1, sticky="w")
-
-        # Save config button
-        ttk.Button(frame, text="Save Settings", command=self.save_settings).grid(row=4, column=0, columnspan=3, pady=20)
-
-    # Folder pickers
-    def pick_invoice_folder(self):
-        folder = filedialog.askdirectory()
-        if folder:
-            self.invoice_folder_var.set(folder)
-
-    def pick_output_folder(self):
-        folder = filedialog.askdirectory()
-        if folder:
-            self.output_folder_var.set(folder)
-
-    def pick_client_file(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Excel/CSV", "*.xlsx *.csv"), ("All files", "*.*")])
-        if file_path:
-            self.client_file_var.set(file_path)
-
-    def save_settings(self):
-        messagebox.showinfo("Saved", "Settings saved successfully!")
 
     # ------------------------------------------------------------
     # SCAN TAB

@@ -13,3 +13,7 @@ openpyxl==3.1.5
 aiosmtpd==1.4.6
 
 keyring==25.5.0
+
+cryptography==46.0.3
+
+pywin32>=311; platform_system == "Windows"

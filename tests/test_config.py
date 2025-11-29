@@ -2,7 +2,7 @@ import configparser
 import json
 from pathlib import Path
 
-import config
+import backend.config as config
 
 
 def _write_config(

@@ -3,7 +3,7 @@ import os
 import sqlite3
 from pathlib import Path
 from datetime import datetime
-from config import (
+from backend.config import (
     load_env_if_present,
     load_config,
     get_invoice_folder,
@@ -12,8 +12,8 @@ from config import (
     get_file_regex,
     get_packaging,
 )
-from db.db_path import get_db_path
-from db.db import (
+from backend.db.db_path import get_db_path
+from backend.db.db import (
     init_db,
     add_or_update_client,
     add_or_update_soa,
@@ -25,11 +25,11 @@ from db.db import (
     get_client_email,
     get_soa_by_head_office
 )
-from utility import extract_pdf_text
-from utility.read_xlsx import iter_xlsx_rows_as_dicts
-from utility.packaging import collect_files_to_zip
-from utility.email import ClientBatch, SMTPConfig, send_all_emails
-from utility.key_mgmt import get_or_prompt_secret, delete_secret
+from backend.utility import extract_pdf_text
+from backend.utility.read_xlsx import iter_xlsx_rows_as_dicts
+from backend.utility.packaging import collect_files_to_zip
+from backend.utility.email import ClientBatch, SMTPConfig, send_all_emails
+from backend.utility.key_mgmt import get_or_prompt_secret, delete_secret
 
 
 def parse_recipients(raw: str | None) -> list[str]:

@@ -42,7 +42,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterable, Iterator, Optional
 
-from .db_path import get_db_path  # or from db import get_db_path if in same file
+from backend.db.db_path import get_db_path  # or from db import get_db_path if in same file
 
 DB_PATH: Path = get_db_path()
 
