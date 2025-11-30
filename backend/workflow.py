@@ -84,7 +84,10 @@ def report_and_cleanup_old_db(old_db_path: Path | None, old_keys: dict[str, set]
     return report
 
 
-def db_mgmt(client_directory:Path,invoice_folder:Path,soa_folder:Path,inv_file_regex,soa_file_regex):
+def db_mgmt(client_directory:Path,invoice_folder:Path,soa_folder:Path):
+
+    inv_file_regex = get_file_regex('invoice')
+    soa_file_regex = get_file_regex('soa')
 
     db_path = get_db_path()
     old_db_path, old_keys = backup_existing_db(db_path)
@@ -140,28 +143,64 @@ def db_mgmt(client_directory:Path,invoice_folder:Path,soa_folder:Path,inv_file_r
 
     return report_and_cleanup_old_db(old_db_path, old_keys, db_path)
 
-def prep_invoice_zips(client_list:list,period_str:str,agg:str):
-    
-    email_shipment = []
+def scan_for_invoices(client_list:list,period_str:str,agg:str):
+    invoices_to_ship: dict[str, list[dict[str, str | None]]] = {}
 
     for client in client_list:
-        soa = get_soa_by_head_office(client)[0]
-        head_office_name = soa['head_office_name']
-        soa_file_path = soa['soa_file_path']
+        head_office = client
+        if agg == "customer_number":
+            client_rows = get_client(customer_number=client)
+            head_office = client_rows[0]["head_office"] if client_rows else client
 
-        invoices = get_invoices(**{agg:client},period_month=period_str)
-        files_to_zip_paths = [inv['inv_file_path'] for inv in invoices]
-        files_to_zip_paths.append(soa_file_path)
-        zip_path = get_db_path().parent / f'{client}.zip'
-        zip_path = collect_files_to_zip(files_to_zip_paths,zip_path)
-        email_list = get_client_email(**{agg:client})
+        soa_rows = get_soa_by_head_office(head_office, period_month=period_str)
+        head_office_name = soa_rows[0]["head_office_name"] if soa_rows else None
+        soa_path = soa_rows[0]["soa_file_path"] if soa_rows else None
+
+        invoices = get_invoices(**{agg: client}, period_month=period_str)
+        invoices_to_ship[head_office] = [
+            {
+                "ship_name": inv["ship_name"],
+                "invoice_number": inv["tax_invoice_no"],
+                "invoice_date": inv["invoice_date"],
+                "invoice_path": inv["inv_file_path"],
+                "soa_path": soa_path,
+                "head_office_name": head_office_name,
+            }
+            for inv in invoices
+        ]
+
+    return invoices_to_ship
+
+def prep_invoice_zips(client_list:list,period_str:str,agg:str):
+    invoices_to_ship = scan_for_invoices(client_list, period_str, agg)
+    email_shipment = []
+
+    for head_office, invoices in invoices_to_ship.items():
+        if not invoices:
+            continue
+
+        head_office_name = invoices[0].get("head_office_name")
+        soa_path = invoices[0].get("soa_path")
+
+        files_to_zip_paths = [inv["invoice_path"] for inv in invoices if inv.get("invoice_path")]
+        if soa_path:
+            files_to_zip_paths.append(soa_path)
+
+        if not files_to_zip_paths:
+            continue
+
+        zip_path = get_db_path().parent / f"{head_office}.zip"
+        zip_path = collect_files_to_zip(files_to_zip_paths, zip_path)
+
+        email_list = get_client_email(head_office=head_office)
         email_shipment.append(
             {
-                'zip_path':zip_path,
-                'email_list':email_list,
-                'head_office_name':head_office_name
+                "zip_path": zip_path,
+                "email_list": email_list,
+                "head_office_name": head_office_name,
             }
         )
+
     return email_shipment
 
 def prep_and_send_emails(smtp_config,email_setup,email_shipment, period_str:str, change_report:str | None):
@@ -198,23 +237,24 @@ def run_workflow(
         soa_folder: Path | None = None,
         client_directory: Path | None = None,
         agg: str = "head_office",
-        period_month: str | None = None,
-        period_year: str | None = None,
+        period_month: int | str | None = None,
+        period_year: int | str | None = None,
         smtp_config: dict | None = None,
         email_setup: dict | None = None,
 ):
-
-    period_str = f"{period_year}-{period_month:02d}"
-    inv_file_regex = get_file_regex('invoice')
-    soa_file_regex = get_file_regex('soa')
-
     change_report = db_mgmt(
         client_directory,
         invoice_folder,
-        soa_folder,
-        inv_file_regex,
-        soa_file_regex
+        soa_folder
     )
+
+    if period_month is None or period_year is None:
+        raise ValueError("period_month and period_year are required when sending emails.")
+
+    period_month = int(period_month)
+    period_year = int(period_year)
+    period_str = f"{period_year}-{period_month:02d}"
+
     client_list = get_client_list(agg)
 
     email_shipment = prep_invoice_zips(
@@ -223,6 +263,7 @@ def run_workflow(
         agg
     )
     prep_and_send_emails(smtp_config,email_setup,email_shipment,period_str, change_report)
+    return {"change_report": change_report}
 
 
 
