@@ -72,7 +72,7 @@ def report_and_cleanup_old_db(old_db_path: Path | None, old_keys: dict[str, set]
         "soa": _load_keys(db_path, "soa", ("soa_file_path",)),
     }
     report = (
-        "DB diff – added/removed:"
+        "Document Collection Updated – added/removed:"
         f" clients (+{len(new_keys['clients'] - old_keys['clients'])}"
         f"/-{len(old_keys['clients'] - new_keys['clients'])}),"
         f" invoices (+{len(new_keys['invoices'] - old_keys['invoices'])}"
@@ -147,24 +147,25 @@ def scan_for_invoices(client_list:list,period_str:str,agg:str):
     invoices_to_ship: dict[str, list[dict[str, str | None]]] = {}
 
     for client in client_list:
-        head_office = client
-        if agg == "customer_number":
-            client_rows = get_client(customer_number=client)
-            head_office = client_rows[0]["head_office"] if client_rows else client
 
-        soa_rows = get_soa_by_head_office(head_office, period_month=period_str)
-        head_office_name = soa_rows[0]["head_office_name"] if soa_rows else None
+        kwargs = {agg: client}
+
+        client_rows = get_client(**kwargs)
+        head_office = client_rows[0]['head_office']
+        soa_rows = get_soa_by_head_office(head_office=head_office)
         soa_path = soa_rows[0]["soa_file_path"] if soa_rows else None
+        head_office_name = soa_rows[0]["head_office_name"] if soa_rows else None
 
         invoices = get_invoices(**{agg: client}, period_month=period_str)
-        invoices_to_ship[head_office] = [
+        invoices_to_ship[client] = [
             {
+                "head_office_name": head_office_name,
                 "ship_name": inv["ship_name"],
                 "invoice_number": inv["tax_invoice_no"],
                 "invoice_date": inv["invoice_date"],
                 "invoice_path": inv["inv_file_path"],
                 "soa_path": soa_path,
-                "head_office_name": head_office_name,
+                "customer_number": inv["customer_number"],
             }
             for inv in invoices
         ]
