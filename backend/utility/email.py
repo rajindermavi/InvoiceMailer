@@ -35,6 +35,15 @@ def build_email(batch: ClientBatch,
                 body_template,
                 sender_name,
                 period) -> EmailMessage:
+    def _period_parts(period_str: str) -> tuple[str, str]:
+        try:
+            year, month = period_str.split("-", 1)
+            return month, year
+        except Exception:
+            return "", ""
+
+    month_val, year_val = _period_parts(str(period))
+
     # Allow config values that use escaped newlines (e.g., "\\n") to render properly.
     if isinstance(body_template, str):
         body_template = body_template.replace("\\n", "\n")
@@ -46,16 +55,21 @@ def build_email(batch: ClientBatch,
     # Headers
     msg["From"] = smtp_conf.from_addr
     msg["To"] = ", ".join(batch.email_list)  # all recipients for this client
-    msg["Subject"] = subject_template.format(
-        month_year=period,
-    )
+
+    fmt_values = {
+        "head_office_name": batch.head_office_name,
+        "contact_name": batch.head_office_name,
+        "sender_name": sender_name,
+        "month_year": period,
+        "period": period,
+        "month": month_val,
+        "year": year_val,
+    }
+
+    msg["Subject"] = subject_template.format(**fmt_values)
 
     # Body
-    body = body_template.format(
-        contact_name=batch.head_office_name,
-        sender_name=sender_name,
-        month_year=period,
-    )
+    body = body_template.format(**fmt_values)
     msg.set_content(body)
 
     # Attachment (the zip at batch.zip_path)
@@ -98,19 +112,24 @@ def send_all_emails(
             f"Body:\n{_get_body_text(msg)}"
         )
 
-    if dry_run:
-        # No network calls, just a sanity check
-        for batch in batches:
-            
-            msg = build_email(batch, smtp_conf, subject_template, body_template, sender_name, period)
-            print(
-                f"[DRY RUN] Would send to {batch.email_list} "
-                f"with attachment {batch.zip_path}"
-            )
-            print(msg.get_body())  #
-        return
+    def _build_activity_log(entries: List[str], is_dry_run: bool) -> str:
+        sep = "\n" + ("-" * 40) + "\n"
+        log_text = f"Email sending activity for period: {period}" + sep.join(entries) + sep
+        if change_report:
+            log_text += f"\nChange Report:\n{change_report}\n"
+        if is_dry_run:
+            # Clear markers make it obvious this was not a real send.
+            log_text = f"<<<TEST ONLY DRY RUN>>>\n{log_text}\n<<<END TEST ONLY DRY RUN>>>"
+        return log_text
 
     activity_log: List[str] = []
+
+    if dry_run:
+        # No network calls, just record what would have been sent.
+        for batch in batches:
+            msg = build_email(batch, smtp_conf, subject_template, body_template, sender_name, period)
+            activity_log.append(_activity_entry("Would send to", batch, msg))
+        return _build_activity_log(activity_log, is_dry_run=True)
 
     with smtplib.SMTP(smtp_conf.host, smtp_conf.port) as server:
         # Advertised capabilities are only available after EHLO.
@@ -138,10 +157,7 @@ def send_all_emails(
             print(f"Sent email to {batch.email_list} with {batch.zip_path}")
             activity_log.append(_activity_entry("Sent to", batch, msg))
 
-        sep = "\n" + ("-" * 40) + "\n"
-        activity_log = f"Email sending activity for period: {period}" + sep.join(activity_log) + sep + (
-            f"\nChange Report:\n{change_report}\n" if change_report else "" 
-        )
+        activity_log = _build_activity_log(activity_log, is_dry_run=False)
 
         if reporter_emails and activity_log:
             report = EmailMessage()
@@ -151,3 +167,4 @@ def send_all_emails(
             report.set_content(activity_log)
             server.send_message(report)
             print(f"Sent activity report to {reporter_emails}")
+    return activity_log

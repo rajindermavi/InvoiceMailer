@@ -172,9 +172,13 @@ def scan_for_invoices(client_list:list,period_str:str,agg:str):
 
     return invoices_to_ship
 
-def prep_invoice_zips(client_list:list,period_str:str,agg:str):
-    invoices_to_ship = scan_for_invoices(client_list, period_str, agg)
+def prep_invoice_zips(
+    invoices_to_ship: dict[str, list[dict[str, str | None]]],
+    zip_output_dir: Path | str | None = None,
+):
     email_shipment = []
+    base_zip_dir = Path(zip_output_dir) if zip_output_dir else get_db_path().parent
+    base_zip_dir.mkdir(parents=True, exist_ok=True)
 
     for head_office, invoices in invoices_to_ship.items():
         if not invoices:
@@ -190,8 +194,7 @@ def prep_invoice_zips(client_list:list,period_str:str,agg:str):
         if not files_to_zip_paths:
             continue
 
-        zip_path = get_db_path().parent / f"{head_office}.zip"
-        zip_path = collect_files_to_zip(files_to_zip_paths, zip_path)
+        zip_path = collect_files_to_zip(files_to_zip_paths, base_zip_dir / f"{head_office}.zip")
 
         email_list = get_client_email(head_office=head_office)
         email_shipment.append(
@@ -204,7 +207,14 @@ def prep_invoice_zips(client_list:list,period_str:str,agg:str):
 
     return email_shipment
 
-def prep_and_send_emails(smtp_config,email_setup,email_shipment, period_str:str, change_report:str | None):
+def prep_and_send_emails(
+    smtp_config,
+    email_setup,
+    email_shipment,
+    period_str: str,
+    change_report: str | None,
+    dry_run: bool = False,
+):
     smtp_username = smtp_config.get('username', "")
     smtp_password = smtp_config.get('password', "")
 
@@ -231,17 +241,29 @@ def prep_and_send_emails(smtp_config,email_setup,email_shipment, period_str:str,
         'reporter_emails': email_setup.get('reporter_emails',[]),
     }
 
-    send_all_emails(client_batches,smtp_cfg,change_report,dry_run=False,**email_template_kwargs)
+    email_report = send_all_emails(
+        client_batches,
+        smtp_cfg,
+        change_report,
+        dry_run=dry_run,
+        **email_template_kwargs,
+    )
+    if email_report is None and dry_run:
+        email_report = "Dry run complete; emails were prepared but not sent."
+    return email_report
 
 def run_workflow(
         invoice_folder: Path | None = None,
         soa_folder: Path | None = None,
         client_directory: Path | None = None,
+        zip_output_dir: Path | None = None,
         agg: str = "head_office",
         period_month: int | str | None = None,
         period_year: int | str | None = None,
         smtp_config: dict | None = None,
         email_setup: dict | None = None,
+        dry_run: bool | None = None,
+        mode: str | None = None,
 ):
     change_report = db_mgmt(
         client_directory,
@@ -255,16 +277,23 @@ def run_workflow(
     period_month = int(period_month)
     period_year = int(period_year)
     period_str = f"{period_year}-{period_month:02d}"
+    resolved_dry_run = dry_run
+    if resolved_dry_run is None:
+        resolved_dry_run = (mode or "").lower() == "test"
 
     client_list = get_client_list(agg)
 
-    email_shipment = prep_invoice_zips(
-        client_list,
+    invoices_to_ship = scan_for_invoices(client_list, period_str, agg)
+    email_shipment = prep_invoice_zips(invoices_to_ship, zip_output_dir)
+    email_report = prep_and_send_emails(
+        smtp_config,
+        email_setup,
+        email_shipment,
         period_str,
-        agg
+        change_report,
+        dry_run=resolved_dry_run,
     )
-    prep_and_send_emails(smtp_config,email_setup,email_shipment,period_str, change_report)
-    return {"change_report": change_report}
+    return {"change_report": change_report,'email_report': email_report}
 
 
 

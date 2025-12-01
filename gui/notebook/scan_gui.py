@@ -4,6 +4,7 @@ import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
+import traceback
 
 from backend.db.db import get_client_list
 from backend.workflow import db_mgmt, scan_for_invoices
@@ -85,7 +86,9 @@ class ScanTab:
             rows = self._flatten_invoice_rows(invoices_to_ship)
             self.root.after(0, lambda: self._on_scan_complete(change_report, rows))
         except Exception as exc:  # noqa: BLE001
-            self.root.after(0, lambda: self._on_scan_error(exc))
+            err = exc
+            err_trace = traceback.format_exc()
+            self.root.after(0, lambda e=err, tb=err_trace: self._on_scan_error(e, tb))
 
     def update_scan_table(self, rows):
         # Clear table
@@ -123,7 +126,9 @@ class ScanTab:
         self.update_scan_table(rows)
         self.start_scan_button.state(["!disabled"])
 
-    def _on_scan_error(self, exc: Exception):
+    def _on_scan_error(self, exc: Exception, tb: str | None = None):
         self.start_scan_button.state(["!disabled"])
         self.change_report_var.set("")
+        if tb:
+            print(tb)
         messagebox.showerror("Scan Failed", str(exc))

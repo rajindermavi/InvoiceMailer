@@ -47,20 +47,13 @@ class SettingsTab:
         ttk.Entry(frame, textvariable=self.output_folder_var, width=50).grid(row=3, column=1, padx=5)
         ttk.Button(frame, text="Browse", command=self.pick_output_folder).grid(row=3, column=2, padx=5)
 
-        # Aggregate by
-        ttk.Label(frame, text="Aggregate By:").grid(row=4, column=0, sticky="w")
+        # Aggregate by (hidden; retained for settings/summary only)
         self.aggregate_by_var = tk.StringVar(value="head_office")
-        ttk.Combobox(
-            frame,
-            textvariable=self.aggregate_by_var,
-            values=["head_office", "customer_number"],
-            width=18,
-        ).grid(row=4, column=1, sticky="w")
 
         # Mode (dev/prod)
-        ttk.Label(frame, text="Mode:").grid(row=5, column=0, sticky="w")
+        ttk.Label(frame, text="Mode:").grid(row=4, column=0, sticky="w")
         self.mode_var = tk.StringVar(value="Active")
-        ttk.Combobox(frame, textvariable=self.mode_var, values=["Active", "Test"], width=10).grid(row=5, column=1, sticky="w")
+        ttk.Combobox(frame, textvariable=self.mode_var, values=["Active", "Test"], width=10).grid(row=4, column=1, sticky="w")
 
         smtp_frame = ttk.LabelFrame(container, text="SMTP")
         smtp_frame.pack(fill="x", padx=5, pady=(0, 10))
