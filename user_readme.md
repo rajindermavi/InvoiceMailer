@@ -19,6 +19,9 @@
 ## Tab Details
 
 ### Settings Tab (fields)
+
+![Document locations and SMTP settings.](_assets/mailer_settings.png "Settings Tab Example")
+
 - **Invoice Folder:** Folder containing invoice PDFs; required for scanning/zipping/sending.
 - **SOA Folder:** Folder containing statements of account; required to pair with invoices.
 - **Client List File:** Excel/CSV file that defines clients; used to refresh the internal DB.
@@ -27,9 +30,16 @@
   - `Test`: Dry run; ZIPs still generate, but email sending is simulated.  
   - `Active`: Real email delivery using your SMTP server. The **Send & Logs** banner shows the current mode in red (Active) or blue (Test).
 - **SMTP Host/Port/Username/Password/From Address/Use TLS:** Mail server settings used when sending in **Active** mode; still required so Test runs can validate connectivity/configuration.
+  - **Username/Password:** Use the credentials your SMTP server expects for authenticated sending. For consumer providers (e.g., Gmail), use an app password rather than your normal sign-in password. For corporate SMTP, use the service account and password provisioned for sending.
+  - **Gmail/App Password:** If using Gmail or Google Workspace with 2FA enforced, generate an app password (see “Generating a Google App Password” at the end of this document) and use that as the SMTP password. Regular Google account passwords will not work when 2FA is enabled.
 - **Save Settings:** Persists the above values and updates the “Current Settings” summary so you can double-check what’s stored.
 
+
+
 ### Email Settings Tab (fields)
+
+![Fill out email settings.](_assets/mailer_email.png "Email Tab Example")
+
 - **Subject Template:** Email subject line template for outgoing invoices.
 - **Body Template:** Multiline email body; supports the text sent with each ZIP.
 - **Sender Name:** Friendly display name for the From header.
@@ -38,20 +48,36 @@
 - **Save Email Settings:** Saves the email-related fields and updates the “Current Email Settings” summary.
 
 ### Scan Tab
+
+![Visualizes the scan for invoices.](_assets/mailer_scan.png "Scan Tab Example")
+
 - **Start Scan:** Refreshes the client database from the client list file, then scans the invoice and SOA folders for the chosen month/year.
 - **Change Report:** Shows any DB updates performed during the scan (or notes if none were needed).
 - **Results Table:** Lists each matched invoice with client aggregate, head office, customer number, ship, invoice number/date, and the matched invoice/SOA filenames.
 - Use this tab to verify the period selection and file matches before zipping/sending.
 
 ### Zip Tab
+
+![Visualizes the Zip files.](_assets/mailer_email.png "Zip Tab Example")
+
 - **Generate ZIP:** Runs the same scan logic, then packages per-client ZIP files to the configured output folder.
 - **Status Message:** Reports change-log info from the DB refresh or confirms completion.
 - **Preview Table:** Displays each client, the period string, and the ZIP filename so you can validate what will be emailed.
 - The resulting ZIP list is reused by the Send tab; rerun here if you change inputs or month/year.
 
 ### Send & Logs Tab
+
+![Trigger Send. Allows for test run for validation.](_assets/mailer_email.png "Send Tab Example")
+
 - **Mode Banner:** Shows whether the app is in `Active - Emails will send` (red) or `Test - Dry run (no emails sent)` (blue). This reflects the Mode from the Settings tab.
 - **Start Email Send:** Sends emails with the prepared ZIPs. In Test mode it simulates delivery without contacting real recipients; in Active mode it uses the SMTP settings to deliver.
 - **Clear Text Screen:** Clears the log output and progress bar.
 - **Progress + Log:** Progress bar shows overall completion; the log records start/end messages, change reports, and email results. Errors will also appear in a pop-up dialog.
 - If you have not generated ZIPs yet, this tab will scan and build them on the fly using your current settings.
+
+## Generating a Google App Password (for Gmail/Workspace SMTP)
+If your Google account has 2-Step Verification enabled, you must use an app password for SMTP:
+1) Sign in to your Google account and open `https://myaccount.google.com/security`.
+2) Under “Signing in to Google,” click **App passwords** (you may need to re-authenticate).
+3) Choose **Mail** as the app and **Other** (or your device) as the device, then click **Generate**.
+4) Copy the 16-character password shown. Use this value as the SMTP password in the Settings tab. Do not include spaces.

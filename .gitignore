@@ -74,6 +74,7 @@ instance/
 .webassets-cache
 
 # Sensitive information (example)
+*.bk
 config.ini
 .env.secret
 *.zip
