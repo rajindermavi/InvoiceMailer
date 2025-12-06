@@ -1,6 +1,11 @@
 
 # Invoice Mailer
 
+```
+# Build Executable:
+pyinstaller --onefile --noconsole --name InvoiceMailer app.py
+```
+
 InvoiceMailer ingests invoice PDFs, SOA PDFs, and a client list Excel file, normalizes them into a local SQLite database, zips per-client document bundles, and delivers them over SMTP with configurable email templates. The GUI (`app.py` → `gui/app_gui.py`) wraps the workflow; `backend/workflow.py` is the orchestration layer used by the Scan, Zip, and Send tabs.
 
 ## How documents are discovered and committed
