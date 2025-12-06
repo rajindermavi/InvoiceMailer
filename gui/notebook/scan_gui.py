@@ -74,7 +74,6 @@ class ScanTab:
                 workflow_kwargs["client_directory"],
                 workflow_kwargs["invoice_folder"],
                 workflow_kwargs["soa_folder"],
-                force=True,
             )
             period_month = workflow_kwargs["period_month"]
             period_year = workflow_kwargs["period_year"]
@@ -122,7 +121,7 @@ class ScanTab:
         return rows
 
     def _on_scan_complete(self, change_report: str | None, rows: list[tuple]):
-        message = change_report or "Scan completed; no DB changes reported."
+        message = change_report or "Scan completed."
         self.change_report_var.set(message)
         self.update_scan_table(rows)
         self.start_scan_button.state(["!disabled"])

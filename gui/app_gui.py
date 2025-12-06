@@ -2,19 +2,13 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from pathlib import Path
 
-from backend.config import (
-    SecureConfig,
-    get_encrypted_config_path,
-    get_key_path,
-)
-from backend.db.db_path import get_db_path
-from backend.db.db_utility import mark_db_dirty
+from backend.config import SecureConfig
 from gui.notebook.settings_gui import SettingsTab
 from gui.notebook.email_gui import EmailSettingsTab
 from gui.notebook.scan_gui import ScanTab
 from gui.notebook.send_gui import SendTab
 from gui.notebook.zip_gui import ZipTab
-from gui.utility import apply_settings_to_vars, load_settings, persist_settings, settings_from_vars
+from gui.utility import load_settings, persist_settings, settings_from_vars
 
 
 class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
@@ -36,12 +30,6 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
         title_row.pack(fill="x")
         ttk.Label(title_row, text="Invoice Mailer", font=("TkDefaultFont", 14, "bold")).pack(side="left")
         ttk.Label(title_row, text="Scan, zip, and send invoices", foreground="#555").pack(side="left", padx=(8, 0))
-
-        maintenance_row = ttk.Frame(header)
-        maintenance_row.pack(fill="x", pady=(6, 0))
-        ttk.Label(maintenance_row, text="Maintenance:").pack(side="left")
-        ttk.Button(maintenance_row, text="Purge DB", command=self.purge_db).pack(side="left", padx=(6, 3))
-        ttk.Button(maintenance_row, text="Purge Settings", command=self.purge_settings).pack(side="left", padx=3)
 
         # -----------------------------
         # Notebook (Tabs)
@@ -141,55 +129,6 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
             "mode": mode,
             "dry_run": mode == "Test",
         }
-
-    # ---- Maintenance helpers ----
-    def purge_db(self):
-        db_path = get_db_path()
-        backup_paths = list(db_path.parent.glob(db_path.name + ".bak*"))
-        errors = []
-        for path in [db_path, *backup_paths]:
-            try:
-                path.unlink(missing_ok=True)
-            except Exception as exc:  # noqa: BLE001
-                errors.append(f"{path}: {exc}")
-
-        mark_db_dirty()
-
-        if errors:
-            messagebox.showerror("Purge DB", "Failed to remove some files:\n" + "\n".join(errors))
-            return
-
-        if hasattr(self, "change_report_var"):
-            self.change_report_var.set("Database purged; run Scan to rebuild.")
-        if hasattr(self, "update_scan_table"):
-            self.update_scan_table([])
-        messagebox.showinfo("Purge DB", "Database files removed. Run Scan to rebuild the database.")
-
-    def purge_settings(self):
-        cfg_path = get_encrypted_config_path()
-        key_path = get_key_path()
-        errors = []
-        for path in (cfg_path, key_path):
-            try:
-                path.unlink(missing_ok=True)
-            except Exception as exc:  # noqa: BLE001
-                errors.append(f"{path}: {exc}")
-
-        # Reload defaults into the form if available.
-        self.settings = self.load_settings_from_store()
-        if hasattr(self, "_settings_vars"):
-            apply_settings_to_vars(self._settings_vars, self.settings)
-        if hasattr(self, "_email_settings_vars"):
-            apply_settings_to_vars(self._email_settings_vars, self.settings)
-        if hasattr(self, "update_current_settings_display"):
-            self.update_current_settings_display()
-        if hasattr(self, "update_email_settings_display"):
-            self.update_email_settings_display()
-
-        if errors:
-            messagebox.showerror("Purge Settings", "Settings cleared, but some files could not be removed:\n" + "\n".join(errors))
-        else:
-            messagebox.showinfo("Purge Settings", "Encrypted settings removed and defaults restored.")
 
 def start_gui():
     root = tk.Tk()
