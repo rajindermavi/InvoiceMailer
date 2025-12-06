@@ -74,6 +74,7 @@ class ScanTab:
                 workflow_kwargs["client_directory"],
                 workflow_kwargs["invoice_folder"],
                 workflow_kwargs["soa_folder"],
+                force=True,
             )
             period_month = workflow_kwargs["period_month"]
             period_year = workflow_kwargs["period_year"]
