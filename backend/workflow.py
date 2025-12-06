@@ -1,5 +1,6 @@
 
 from pathlib import Path
+import re
 from backend.db.db_utility import db_mgmt
 from backend.db.db_path import get_db_path
 from backend.db.db import (
@@ -57,7 +58,12 @@ def prep_invoice_zips(
         if not invoices:
             continue
 
-        head_office_name = invoices[0].get("head_office_name")
+        raw_head_office_name = invoices[0].get("head_office_name")
+        head_office_name = raw_head_office_name or head_office or "client"
+        # Sanitize for Windows-safe usage and include the aggregate key to reduce collisions.
+        head_office_name = re.sub(r'[<>:"/\\\\|?*]+', "_", head_office_name).strip().strip(".")
+        if head_office and head_office not in head_office_name:
+            head_office_name = f"{head_office_name}_{head_office}"
         soa_path = invoices[0].get("soa_path")
 
         files_to_zip_paths = [inv["invoice_path"] for inv in invoices if inv.get("invoice_path")]

@@ -23,7 +23,8 @@ def db_mgmt(client_directory: Path, invoice_folder: Path, soa_folder: Path, *, f
     db_path = get_db_path()
 
     try:
-        db_path.unlink()
+        if db_path.exists():
+            db_path.unlink()
 
         # CREATE NEW DB
         init_db()
