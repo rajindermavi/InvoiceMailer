@@ -152,10 +152,19 @@ class SecureConfig:
         if not self._win32crypt:
             return None
         try:
-            return self._win32crypt.CryptProtectData(data, None, None, None, None, 0)[1]
+            encrypted = self._win32crypt.CryptProtectData(data, None, None, None, None, 0)[1]
         except Exception:
             self._use_dpapi = False
             return None
+
+        if isinstance(encrypted, memoryview):
+            return encrypted.tobytes()
+        if isinstance(encrypted, (bytes, bytearray)):
+            return bytes(encrypted)
+
+        # Unexpected type; disable DPAPI so we fall back to Fernet.
+        self._use_dpapi = False
+        return None
 
     def load(self) -> dict:
         """Decrypt and load the config from config.enc."""
@@ -213,4 +222,3 @@ def get_file_regex( type: str | None = None
     default = '^([^\s]+).pdf'
     pattern_str = file_patterns.get(type) or default
     return re.compile(pattern_str, re.IGNORECASE)
-
