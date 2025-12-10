@@ -27,10 +27,12 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "mode": "Active",
     "smtp_host": "smtp.gmail.com",
     "smtp_port": "587",
+    "ms_smtp_host":"smtp.office365.com",
     "smtp_username": "",
     "smtp_password": "",
     "smtp_from": "",
     "smtp_use_tls": True,
+    "email_auth_method": "smtp",
     "subject_template": DEFAULT_SUBJECT_TEMPLATE,
     "body_template": DEFAULT_BODY_TEMPLATE,
     "sender_name": DEFAULT_SENDER_NAME,
@@ -69,6 +71,12 @@ def apply_settings_to_vars(vars_map: Mapping[str, Any], settings: Mapping[str, A
     for key, var in vars_map.items():
         var.set(settings.get(key, DEFAULT_SETTINGS.get(key, "")))
 
+def reset_month_and_year():
+    RESET_MONTH_AND_YEAR = {
+        "email_month": DEFAULT_PERIOD_MONTH,
+        "email_year": DEFAULT_PERIOD_YEAR,
+    }
+    return RESET_MONTH_AND_YEAR
 
 def settings_from_vars(vars_map: Mapping[str, Any]) -> Dict[str, Any]:
     """
