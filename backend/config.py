@@ -294,6 +294,6 @@ def get_date_regex() -> list[re.Pattern[str]]:
 
 def get_file_regex( type: str | None = None
 ) -> re.Pattern[str]:
-    default = '^([^\s]+).pdf'
+    default = r"^([^\s]+)\.pdf$"
     pattern_str = file_patterns.get(type) or default
     return re.compile(pattern_str, re.IGNORECASE)

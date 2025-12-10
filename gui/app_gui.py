@@ -8,7 +8,7 @@ from gui.notebook.email_gui import EmailSettingsTab
 from gui.notebook.scan_gui import ScanTab
 from gui.notebook.send_gui import SendTab
 from gui.notebook.zip_gui import ZipTab
-from gui.utility import load_settings, persist_settings, settings_from_vars
+from gui.utility import load_settings, persist_settings, settings_from_vars, reset_month_and_year
 
 
 class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
@@ -20,6 +20,11 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
         self.email_shipment: list[dict] = []
         self.root.title("Invoice Mailer")
         self.root.geometry("1000x800")
+
+        # ---------------------------
+        # Reset Month and Year Values
+        # ---------------------------
+        self.persist_settings_to_store(reset_month_and_year())
 
         # -----------------------------
         # Header above tabs

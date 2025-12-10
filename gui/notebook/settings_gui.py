@@ -55,6 +55,18 @@ class SettingsTab:
         self.mode_var = tk.StringVar(value="Active")
         ttk.Combobox(frame, textvariable=self.mode_var, values=["Active", "Test"], width=10).grid(row=4, column=1, sticky="w")
 
+        # Email authentication method toggle
+        self.email_auth_method_var = tk.StringVar(value="smtp")
+
+        auth_frame = ttk.LabelFrame(container, text="Authentication")
+        auth_frame.pack(fill="x", padx=5, pady=(0, 10))
+        ttk.Radiobutton(auth_frame, text="SMTP", variable=self.email_auth_method_var, value="smtp").grid(
+            row=0, column=0, padx=5, pady=2, sticky="w"
+        )
+        ttk.Radiobutton(auth_frame, text="MS Auth", variable=self.email_auth_method_var, value="ms_auth").grid(
+            row=0, column=1, padx=5, pady=2, sticky="w"
+        )
+
         smtp_frame = ttk.LabelFrame(container, text="SMTP")
         smtp_frame.pack(fill="x", padx=5, pady=(0, 10))
 
@@ -72,6 +84,7 @@ class SettingsTab:
             "output_folder": self.output_folder_var,
             "aggregate_by": self.aggregate_by_var,
             "mode": self.mode_var,
+            "email_auth_method": self.email_auth_method_var,
             "smtp_host": self.smtp_host_var,
             "smtp_port": self.smtp_port_var,
             "smtp_username": self.smtp_username_var,
@@ -111,6 +124,7 @@ class SettingsTab:
         self.soa_folder_label_var = tk.StringVar(value="SOA Folder: (not saved)")
         self.aggregate_by_label_var = tk.StringVar(value="Aggregate By: (not saved)")
         self.mode_label_var = tk.StringVar(value="Mode: (not saved)")
+        self.auth_method_label_var = tk.StringVar(value="Email Auth: (not saved)")
         self.smtp_host_label_var = tk.StringVar(value="SMTP Host: (not saved)")
         self.smtp_port_label_var = tk.StringVar(value="SMTP Port: (not saved)")
         self.smtp_username_label_var = tk.StringVar(value="SMTP Username: (not saved)")
@@ -126,6 +140,7 @@ class SettingsTab:
         ttk.Label(cfg_summary, textvariable=self.output_folder_label_var).grid(row=3, column=0, sticky="w", pady=2)
         ttk.Label(cfg_summary, textvariable=self.aggregate_by_label_var).grid(row=4, column=0, sticky="w", pady=2)
         ttk.Label(cfg_summary, textvariable=self.mode_label_var).grid(row=5, column=0, sticky="w", pady=2)
+        ttk.Label(cfg_summary, textvariable=self.auth_method_label_var).grid(row=6, column=0, sticky="w", pady=2)
 
         smtp_summary = ttk.Frame(current_frame)
         smtp_summary.grid(row=0, column=1, sticky="nsew")
@@ -173,6 +188,9 @@ class SettingsTab:
         self.client_file_label_var.set(f"Client List File: {self.settings['client_file'] or '(empty)'}")
         self.aggregate_by_label_var.set(f"Aggregate By: {self.settings['aggregate_by'].replace('_',' ').title() or '(empty)'}")
         self.mode_label_var.set(f"Mode: {self.settings['mode'] or '(empty)'}")
+        auth_method_raw = (self.settings.get('email_auth_method') or 'smtp').lower()
+        auth_method_label = "MS Auth" if auth_method_raw == "ms_auth" else "SMTP"
+        self.auth_method_label_var.set(f"Email Auth: {auth_method_label}")
         self.smtp_host_label_var.set(f"SMTP Host: {self.settings['smtp_host'] or '(empty)'}")
         self.smtp_port_label_var.set(f"SMTP Port: {self.settings['smtp_port'] or '(empty)'}")
         self.smtp_username_label_var.set(f"SMTP Username: {self.settings['smtp_username'] or '(empty)'}")
