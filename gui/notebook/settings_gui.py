@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
+from datetime import datetime
+import threading
 
 from gui.utility import apply_settings_to_vars, settings_from_vars
 
@@ -57,18 +59,16 @@ class SettingsTab:
 
         # Email authentication method toggle
         self.email_auth_method_var = tk.StringVar(value="smtp")
+        self._auth_frame_pack_opts = {"fill": "x", "padx": 5, "pady": (0, 10)}
 
         auth_frame = ttk.LabelFrame(container, text="Authentication")
-        auth_frame.pack(fill="x", padx=5, pady=(0, 10))
-        ttk.Radiobutton(auth_frame, text="SMTP", variable=self.email_auth_method_var, value="smtp").grid(
+        auth_frame.pack(**self._auth_frame_pack_opts)
+        ttk.Radiobutton(auth_frame, text="SMTP", variable=self.email_auth_method_var, value="smtp", command=self._refresh_auth_frames).grid(
             row=0, column=0, padx=5, pady=2, sticky="w"
         )
-        ttk.Radiobutton(auth_frame, text="MS Auth", variable=self.email_auth_method_var, value="ms_auth").grid(
+        ttk.Radiobutton(auth_frame, text="MS Auth", variable=self.email_auth_method_var, value="ms_auth", command=self._refresh_auth_frames).grid(
             row=0, column=1, padx=5, pady=2, sticky="w"
         )
-
-        smtp_frame = ttk.LabelFrame(container, text="SMTP")
-        smtp_frame.pack(fill="x", padx=5, pady=(0, 10))
 
         self.smtp_host_var = tk.StringVar(value="smtp.gmail.com")
         self.smtp_port_var = tk.StringVar(value="587")
@@ -76,6 +76,9 @@ class SettingsTab:
         self.smtp_password_var = tk.StringVar()
         self.smtp_from_var = tk.StringVar()
         self.smtp_use_tls_var = tk.BooleanVar(value=True)
+        self.ms_username_var = tk.StringVar()
+        self.ms_token_cache_var = tk.StringVar()
+        self.ms_token_ts_var = tk.StringVar()
 
         self._settings_vars = {
             "invoice_folder": self.invoice_folder_var,
@@ -91,25 +94,40 @@ class SettingsTab:
             "smtp_password": self.smtp_password_var,
             "smtp_from": self.smtp_from_var,
             "smtp_use_tls": self.smtp_use_tls_var,
+            "ms_username": self.ms_username_var,
+            "ms_token_cache": self.ms_token_cache_var,
+            "ms_token_ts": self.ms_token_ts_var,
         }
         apply_settings_to_vars(self._settings_vars, self.settings)
 
-        ttk.Label(smtp_frame, text="Host:").grid(row=0, column=0, sticky="w")
-        ttk.Entry(smtp_frame, textvariable=self.smtp_host_var, width=40).grid(row=0, column=1, padx=5, sticky="w")
+        self.auth_content = ttk.Frame(container)
+        self.auth_content.pack(**self._auth_frame_pack_opts)
 
-        ttk.Label(smtp_frame, text="Port:").grid(row=1, column=0, sticky="w")
-        ttk.Entry(smtp_frame, textvariable=self.smtp_port_var, width=10).grid(row=1, column=1, padx=5, sticky="w")
+        self.smtp_frame = ttk.LabelFrame(self.auth_content, text="SMTP")
+        self.ms_auth_frame = ttk.LabelFrame(self.auth_content, text="MS Auth")
+        self.ms_auth_status_var = tk.StringVar(value="MS Token: (not requested)")
+        self.fetch_ms_token_button = ttk.Button(self.ms_auth_frame, text="Fetch MS Auth Token", command=self.fetch_ms_auth_token)
+        self.fetch_ms_token_button.grid(row=0, column=0, padx=5, pady=2, sticky="w")
+        #ttk.Label(self.ms_auth_frame, textvariable=self.ms_auth_status_var, foreground="#555").grid(row=0, column=1, sticky="w")
 
-        ttk.Label(smtp_frame, text="Username:").grid(row=2, column=0, sticky="w")
-        ttk.Entry(smtp_frame, textvariable=self.smtp_username_var, width=40).grid(row=2, column=1, padx=5, sticky="w")
+        ttk.Label(self.smtp_frame, text="Host:").grid(row=0, column=0, sticky="w")
+        ttk.Entry(self.smtp_frame, textvariable=self.smtp_host_var, width=40).grid(row=0, column=1, padx=5, sticky="w")
 
-        ttk.Label(smtp_frame, text="Password:").grid(row=3, column=0, sticky="w")
-        ttk.Entry(smtp_frame, textvariable=self.smtp_password_var, show="*", width=40).grid(row=3, column=1, padx=5, sticky="w")
+        ttk.Label(self.smtp_frame, text="Port:").grid(row=1, column=0, sticky="w")
+        ttk.Entry(self.smtp_frame, textvariable=self.smtp_port_var, width=10).grid(row=1, column=1, padx=5, sticky="w")
 
-        ttk.Label(smtp_frame, text="From Address:").grid(row=4, column=0, sticky="w")
-        ttk.Entry(smtp_frame, textvariable=self.smtp_from_var, width=40).grid(row=4, column=1, padx=5, sticky="w")
+        ttk.Label(self.smtp_frame, text="Username:").grid(row=2, column=0, sticky="w")
+        ttk.Entry(self.smtp_frame, textvariable=self.smtp_username_var, width=40).grid(row=2, column=1, padx=5, sticky="w")
 
-        ttk.Checkbutton(smtp_frame, text="Use TLS", variable=self.smtp_use_tls_var).grid(row=5, column=0, columnspan=2, sticky="w")
+        ttk.Label(self.smtp_frame, text="Password:").grid(row=3, column=0, sticky="w")
+        ttk.Entry(self.smtp_frame, textvariable=self.smtp_password_var, show="*", width=40).grid(row=3, column=1, padx=5, sticky="w")
+
+        ttk.Label(self.smtp_frame, text="From Address:").grid(row=4, column=0, sticky="w")
+        ttk.Entry(self.smtp_frame, textvariable=self.smtp_from_var, width=40).grid(row=4, column=1, padx=5, sticky="w")
+
+        ttk.Checkbutton(self.smtp_frame, text="Use TLS", variable=self.smtp_use_tls_var).grid(row=5, column=0, columnspan=2, sticky="w")
+
+        self._refresh_auth_frames()
 
         ttk.Button(container, text="Save Settings", command=self.save_settings).pack(fill="x", padx=5, pady=(0, 10))
 
@@ -131,6 +149,10 @@ class SettingsTab:
         self.smtp_password_label_var = tk.StringVar(value="SMTP Password: (not saved)")
         self.smtp_from_label_var = tk.StringVar(value="From Address: (not saved)")
         self.smtp_tls_label_var = tk.StringVar(value="Use TLS: (not saved)")
+        self.ms_username_label_var = tk.StringVar(value="MS Username: (not saved)")
+        self.ms_token_cache_label_var = tk.StringVar(value="MS Token Cache: (not saved)")
+        self.ms_token_ts_label_var = tk.StringVar(value="MS Token Timestamp: (not saved)")
+        self.ms_token_valid_label_var = tk.StringVar(value="MS Token Valid: (not checked)")
 
         cfg_summary = ttk.Frame(current_frame)
         cfg_summary.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
@@ -142,16 +164,35 @@ class SettingsTab:
         ttk.Label(cfg_summary, textvariable=self.mode_label_var).grid(row=5, column=0, sticky="w", pady=2)
         ttk.Label(cfg_summary, textvariable=self.auth_method_label_var).grid(row=6, column=0, sticky="w", pady=2)
 
-        smtp_summary = ttk.Frame(current_frame)
-        smtp_summary.grid(row=0, column=1, sticky="nsew")
-        ttk.Label(smtp_summary, textvariable=self.smtp_host_label_var).grid(row=0, column=0, sticky="w", pady=2)
-        ttk.Label(smtp_summary, textvariable=self.smtp_port_label_var).grid(row=1, column=0, sticky="w", pady=2)
-        ttk.Label(smtp_summary, textvariable=self.smtp_username_label_var).grid(row=2, column=0, sticky="w", pady=2)
-        ttk.Label(smtp_summary, textvariable=self.smtp_password_label_var).grid(row=3, column=0, sticky="w", pady=2)
-        ttk.Label(smtp_summary, textvariable=self.smtp_from_label_var).grid(row=4, column=0, sticky="w", pady=2)
-        ttk.Label(smtp_summary, textvariable=self.smtp_tls_label_var).grid(row=5, column=0, sticky="w", pady=2)
+        self.smtp_summary = ttk.Frame(current_frame)
+        self.smtp_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        ttk.Label(self.smtp_summary, textvariable=self.smtp_host_label_var).grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(self.smtp_summary, textvariable=self.smtp_port_label_var).grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Label(self.smtp_summary, textvariable=self.smtp_username_label_var).grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Label(self.smtp_summary, textvariable=self.smtp_password_label_var).grid(row=3, column=0, sticky="w", pady=2)
+        ttk.Label(self.smtp_summary, textvariable=self.smtp_from_label_var).grid(row=4, column=0, sticky="w", pady=2)
+        #ttk.Label(self.smtp_summary, textvariable=self.smtp_tls_label_var).grid(row=5, column=0, sticky="w", pady=2)
+
+        self.ms_summary = ttk.Frame(current_frame)
+        self.ms_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        ttk.Label(self.ms_summary, textvariable=self.ms_username_label_var).grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_token_cache_label_var).grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_token_ts_label_var).grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_token_valid_label_var).grid(row=3, column=0, sticky="w", pady=2)
 
         self.update_current_settings_display()
+
+    def _refresh_auth_frames(self, *_):
+        # Toggle between SMTP and MS Auth frames based on the selected method.
+        selected = self.email_auth_method_var.get()
+        self.smtp_frame.pack_forget()
+        self.ms_auth_frame.pack_forget()
+        if selected == "ms_auth":
+            self.ms_auth_frame.pack(fill="x")
+        else:
+            self.smtp_frame.pack(fill="x")
+        if hasattr(self, "smtp_summary") and hasattr(self, "ms_summary"):
+            self._refresh_current_summary_frames()
 
     def pick_invoice_folder(self):
         folder = filedialog.askdirectory()
@@ -188,8 +229,9 @@ class SettingsTab:
         self.client_file_label_var.set(f"Client List File: {self.settings['client_file'] or '(empty)'}")
         self.aggregate_by_label_var.set(f"Aggregate By: {self.settings['aggregate_by'].replace('_',' ').title() or '(empty)'}")
         self.mode_label_var.set(f"Mode: {self.settings['mode'] or '(empty)'}")
-        auth_method_raw = (self.settings.get('email_auth_method') or 'smtp').lower()
-        auth_method_label = "MS Auth" if auth_method_raw == "ms_auth" else "SMTP"
+        #auth_method_raw = (self.settings.get('email_auth_method') or 'smtp').lower()
+        #auth_method_label = "MS Auth" if auth_method_raw == "ms_auth" else "SMTP"
+        auth_method_label = self.email_auth_method_var.get()
         self.auth_method_label_var.set(f"Email Auth: {auth_method_label}")
         self.smtp_host_label_var.set(f"SMTP Host: {self.settings['smtp_host'] or '(empty)'}")
         self.smtp_port_label_var.set(f"SMTP Port: {self.settings['smtp_port'] or '(empty)'}")
@@ -198,3 +240,92 @@ class SettingsTab:
         self.smtp_password_label_var.set(f"SMTP Password: {masked_pwd}")
         self.smtp_from_label_var.set(f"From Address: {self.settings['smtp_from'] or '(empty)'}")
         self.smtp_tls_label_var.set(f"Use TLS: {'Yes' if self.settings['smtp_use_tls'] else 'No'}")
+        cache_value = self.settings.get("ms_token_cache") or ""
+        cache_label = "(saved)" if cache_value else "(empty)"
+        ts_label = self.settings.get("ms_token_ts") or "(NA)"
+        ms_username_label = self.settings.get("ms_username") or "(empty)"
+        self.ms_username_label_var.set(f"MS Username: {ms_username_label}")
+        self.ms_token_cache_label_var.set(f"MS Token Cache: {cache_label}")
+        self.ms_token_ts_label_var.set(f"MS Token Timestamp: {ts_label}")
+        is_valid = getattr(self, "valid_ms_cached_token", None)
+        if is_valid is True:
+            valid_label = "Yes"
+        elif is_valid is False:
+            valid_label = "No"
+        else:
+            valid_label = "(unknown)"
+        self.ms_token_valid_label_var.set(f"MS Token Valid: {valid_label}")
+        self._refresh_current_summary_frames()
+
+    def _refresh_current_summary_frames(self):
+        selected = self.email_auth_method_var.get()
+        self.smtp_summary.grid_remove()
+        self.ms_summary.grid_remove()
+        if selected == "ms_auth":
+            self.ms_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        else:
+            self.smtp_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+
+    def fetch_ms_auth_token(self):
+        if getattr(self, "_ms_auth_in_progress", False):
+            return
+
+        if not hasattr(self, "msal_token_provider"):
+            messagebox.showerror("MS Auth", "MSAL token provider is not configured.")
+            return
+
+        self._ms_auth_in_progress = True
+        if getattr(self, "fetch_ms_token_button", None):
+            self.fetch_ms_token_button.state(["disabled"])
+
+        ms_username = self.ms_username_var.get().strip()
+        if ms_username:
+            self.msal_token_provider.ms_username = ms_username
+
+        self.ms_auth_status_var.set("MS Token: waiting for sign-in...")
+
+        def _worker():
+            try:
+                self.msal_token_provider.acquire_token(interactive=True)
+            except Exception as exc:
+                self.root.after(0, self._handle_ms_auth_failure, exc)
+                return
+            provider_username = getattr(self.msal_token_provider, "ms_username", None)
+            self.root.after(0, self._handle_ms_auth_success, provider_username or ms_username)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _handle_ms_auth_success(self, ms_username: str | None) -> None:
+        if not ms_username:
+            ms_username = getattr(self.msal_token_provider, "ms_username", None)
+        if ms_username:
+            self.ms_username_var.set(ms_username)
+        timestamp = datetime.now().isoformat(timespec="seconds")
+        self.ms_token_ts_var.set(timestamp)
+        self.valid_ms_cached_token = True
+        self.ms_auth_status_var.set("MS Token: cached")
+        self._persist_ms_auth_status(ms_username, timestamp)
+        self.update_current_settings_display()
+        if getattr(self, "fetch_ms_token_button", None):
+            self.fetch_ms_token_button.state(["!disabled"])
+        self._ms_auth_in_progress = False
+        messagebox.showinfo("MS Auth", "MS token acquired and cached.")
+
+    def _handle_ms_auth_failure(self, exc: Exception) -> None:
+        self.valid_ms_cached_token = False
+        self.ms_auth_status_var.set("MS Token: failed to acquire")
+        self.update_current_settings_display()
+        if getattr(self, "fetch_ms_token_button", None):
+            self.fetch_ms_token_button.state(["!disabled"])
+        self._ms_auth_in_progress = False
+        messagebox.showerror("MS Auth", f"Could not obtain MS token:\n{exc}")
+
+    def _persist_ms_auth_status(self, ms_username: str, timestamp: str) -> None:
+        if not hasattr(self, "secure_config") or not self.secure_config:
+            return
+        data = self.secure_config.load() or {}
+        if ms_username:
+            data["ms_username"] = ms_username
+        if timestamp:
+            data["ms_token_ts"] = timestamp
+        self.secure_config.save(data)

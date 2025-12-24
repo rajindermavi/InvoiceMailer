@@ -1,4 +1,5 @@
 import smtplib
+import msal
 from email.message import EmailMessage
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +12,7 @@ DEFAULT_BODY_TEMPLATE = (
     "Best regards,\n"
     "Your Company"
 )
+
 
 @dataclass
 class ClientBatch:

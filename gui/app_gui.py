@@ -1,8 +1,10 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 from pathlib import Path
+import re
 
 from backend.config import SecureConfig
+from gui.msal_device_code import MSalDeviceCodeTokenProvider
 from gui.notebook.settings_gui import SettingsTab
 from gui.notebook.email_gui import EmailSettingsTab
 from gui.notebook.scan_gui import ScanTab
@@ -17,6 +19,10 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
         self.root = root
         self.secure_config = secure_config or SecureConfig()
         self.settings = self.load_settings_from_store()
+        self.msal_token_provider = self.init_msal_identity(self.secure_config)
+        if self.settings.get("ms_username"):
+            self.msal_token_provider.ms_username = self.settings.get("ms_username")
+        self.valid_ms_cached_token = self.validate_ms_cached_token(self.msal_token_provider)
         self.email_shipment: list[dict] = []
         self.root.title("Invoice Mailer")
         self.root.geometry("1000x800")
@@ -24,7 +30,8 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
         # ---------------------------
         # Reset Month and Year Values
         # ---------------------------
-        self.persist_settings_to_store(reset_month_and_year())
+        month_year_reset = {**self.settings, **reset_month_and_year()}
+        self.persist_settings_to_store(month_year_reset)
 
         # -----------------------------
         # Header above tabs
@@ -67,6 +74,18 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
     def load_settings_from_store(self):
         self.settings = load_settings(self.secure_config)
         return self.settings
+
+    def init_msal_identity(self,secure_config: SecureConfig | None = None) -> MSalDeviceCodeTokenProvider:
+        secure_config = secure_config or SecureConfig()
+        return MSalDeviceCodeTokenProvider(secure_config=secure_config, show_message=self._show_device_flow_popup)
+
+    def validate_ms_cached_token(self, token_provider: MSalDeviceCodeTokenProvider) -> bool:
+        try:
+            token_provider.acquire_token(interactive=False)
+            return True
+        except RuntimeError as e:
+            print(e)
+            return False
 
     def persist_settings_to_store(self, settings):
         persist_settings(self.secure_config, settings)
@@ -134,6 +153,80 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
             "mode": mode,
             "dry_run": mode == "Test",
         }
+
+    def _show_device_flow_popup(self, message: object) -> None:
+        """
+        Show device-code instructions with selectable fields and copy buttons.
+        Accepts either the MSAL flow dict or a plain string message.
+        """
+        def _show():
+            flow_dict = message if isinstance(message, dict) else {}
+            raw_text = flow_dict.get("message") if flow_dict else str(message)
+            url, code = self._parse_device_flow_message(raw_text)
+            url = flow_dict.get("verification_uri") or url
+            code = flow_dict.get("user_code") or code
+            message_text = raw_text or "Follow the sign-in instructions."
+
+            popup = tk.Toplevel(self.root)
+            popup.title("Microsoft Sign-in")
+            popup.transient(self.root)
+            popup.grab_set()
+
+            container = ttk.Frame(popup, padding=10)
+            container.pack(fill="both", expand=True)
+
+            ttk.Label(
+                container,
+                text="Use a browser to open the website and enter the code to sign in.",
+                wraplength=420,
+                justify="left",
+            ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
+
+            ttk.Label(container, text="Website:").grid(row=1, column=0, sticky="e", padx=(0, 6), pady=4)
+            url_var = tk.StringVar(value=url or "")
+            url_entry = ttk.Entry(container, textvariable=url_var, width=50)
+            url_entry.grid(row=1, column=1, sticky="we", pady=4)
+            ttk.Button(container, text="Copy", command=lambda: self._copy_to_clipboard(url_var.get())).grid(row=1, column=2, padx=(6, 0), pady=4)
+
+            ttk.Label(container, text="Code:").grid(row=2, column=0, sticky="e", padx=(0, 6), pady=4)
+            code_var = tk.StringVar(value=code or "")
+            code_entry = ttk.Entry(container, textvariable=code_var, width=30, font=("TkDefaultFont", 12, "bold"))
+            code_entry.grid(row=2, column=1, sticky="w", pady=4)
+            ttk.Button(container, text="Copy", command=lambda: self._copy_to_clipboard(code_var.get())).grid(row=2, column=2, padx=(6, 0), pady=4)
+
+            ttk.Label(container, text="Full instructions:").grid(row=3, column=0, sticky="ne", padx=(0, 6), pady=(10, 0))
+            text = tk.Text(container, height=4, width=55, wrap="word")
+            text.insert("1.0", message_text)
+            text.config(state="disabled")
+            text.grid(row=3, column=1, columnspan=2, sticky="we", pady=(10, 0))
+
+            container.columnconfigure(1, weight=1)
+            url_entry.focus_set()
+
+        # Ensure UI work happens on the main thread.
+        if hasattr(self, "root"):
+            self.root.after(0, _show)
+        else:
+            _show()
+
+    def _copy_to_clipboard(self, value: str) -> None:
+        if not value:
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(value)
+        self.root.update()
+
+    def _parse_device_flow_message(self, message: str) -> tuple[str | None, str | None]:
+        """
+        Extract the sign-in URL and device code from the MSAL device-flow message.
+        """
+        url_match = re.search(r"https?://\S+", message)
+        url = url_match.group(0) if url_match else None
+
+        code_match = re.search(r"\b[A-Z0-9]{6,}\b", message)
+        code = code_match.group(0) if code_match else None
+
+        return url, code
 
 def start_gui():
     root = tk.Tk()

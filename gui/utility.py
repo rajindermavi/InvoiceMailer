@@ -28,6 +28,10 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "smtp_host": "smtp.gmail.com",
     "smtp_port": "587",
     "ms_smtp_host":"smtp.office365.com",
+    "ms_smtp_port":"587",
+    "ms_username":"",
+    "ms_token_cache":"",
+    "ms_token_ts":"",
     "smtp_username": "",
     "smtp_password": "",
     "smtp_from": "",
@@ -60,8 +64,17 @@ def load_settings(secure_config: SecureConfig) -> Dict[str, Any]:
 def persist_settings(secure_config: SecureConfig, settings: Mapping[str, Any]) -> None:
     """
     Persist the settings dict via SecureConfig.
+    Merge into existing secure config so MSAL token cache and other extras survive.
     """
-    secure_config.save(dict(settings))
+    existing = secure_config.load() or {}
+    merged = dict(existing)
+    # Avoid overwriting the MSAL token cache (managed by MSalDeviceCodeTokenProvider)
+    filtered_settings = {
+        key: value for key, value in dict(settings).items()
+        if key != "ms_token_cache"
+    }
+    merged.update(filtered_settings)
+    secure_config.save(merged)
 
 
 def apply_settings_to_vars(vars_map: Mapping[str, Any], settings: Mapping[str, Any]) -> None:
