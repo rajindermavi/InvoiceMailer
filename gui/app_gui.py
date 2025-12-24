@@ -128,6 +128,16 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
         if isinstance(reporter_emails, str):
             reporter_emails = [email.strip() for email in reporter_emails.split(",") if email.strip()]
 
+        ms_token = {
+            "ms_smtp_host":settings.get("ms_smtp_host"),
+            "ms_smtp_port":settings.get("ms_smtp_port"),
+            "ms_use_starttls":settings.get("ms_use_starttls"),
+            #"ms_username": settings.get("ms_username"),
+            "ms_email_address": settings.get("ms_email_address"),
+            #"ms_token_cache": settings.get("ms_token_cache"),
+            #"ms_token_ts": settings.get("ms_token_ts"),
+        }
+
         return {
             "invoice_folder": Path(required_paths["invoice_folder"]),
             "soa_folder": Path(required_paths["soa_folder"]),
@@ -150,6 +160,7 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
                 "sender_name": settings.get("sender_name"),
                 "reporter_emails": reporter_emails,
             },
+            "ms_token": ms_token,
             "mode": mode,
             "dry_run": mode == "Test",
         }

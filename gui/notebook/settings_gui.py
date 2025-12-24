@@ -4,7 +4,9 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from datetime import datetime
 import threading
+from email.message import EmailMessage
 
+from gui.msal_device_code import send_email_via_graph
 from gui.utility import apply_settings_to_vars, settings_from_vars
 
 
@@ -77,6 +79,7 @@ class SettingsTab:
         self.smtp_from_var = tk.StringVar()
         self.smtp_use_tls_var = tk.BooleanVar(value=True)
         self.ms_username_var = tk.StringVar()
+        self.ms_email_address_var = tk.StringVar()
         self.ms_token_cache_var = tk.StringVar()
         self.ms_token_ts_var = tk.StringVar()
 
@@ -95,6 +98,7 @@ class SettingsTab:
             "smtp_from": self.smtp_from_var,
             "smtp_use_tls": self.smtp_use_tls_var,
             "ms_username": self.ms_username_var,
+            "ms_email_address": self.ms_email_address_var,
             "ms_token_cache": self.ms_token_cache_var,
             "ms_token_ts": self.ms_token_ts_var,
         }
@@ -109,6 +113,10 @@ class SettingsTab:
         self.fetch_ms_token_button = ttk.Button(self.ms_auth_frame, text="Fetch MS Auth Token", command=self.fetch_ms_auth_token)
         self.fetch_ms_token_button.grid(row=0, column=0, padx=5, pady=2, sticky="w")
         #ttk.Label(self.ms_auth_frame, textvariable=self.ms_auth_status_var, foreground="#555").grid(row=0, column=1, sticky="w")
+        ttk.Label(self.ms_auth_frame, text="MS Email Address:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
+        ttk.Entry(self.ms_auth_frame, textvariable=self.ms_email_address_var, width=40).grid(row=1, column=1, padx=5, pady=2, sticky="w")
+        self.send_ms_test_button = ttk.Button(self.ms_auth_frame, text="Send Test Email", command=self.send_ms_test_email)
+        self.send_ms_test_button.grid(row=2, column=0, padx=5, pady=2, sticky="w")
 
         ttk.Label(self.smtp_frame, text="Host:").grid(row=0, column=0, sticky="w")
         ttk.Entry(self.smtp_frame, textvariable=self.smtp_host_var, width=40).grid(row=0, column=1, padx=5, sticky="w")
@@ -150,6 +158,7 @@ class SettingsTab:
         self.smtp_from_label_var = tk.StringVar(value="From Address: (not saved)")
         self.smtp_tls_label_var = tk.StringVar(value="Use TLS: (not saved)")
         self.ms_username_label_var = tk.StringVar(value="MS Username: (not saved)")
+        self.ms_email_address_label_var = tk.StringVar(value="MS Email Address: (not saved)")
         self.ms_token_cache_label_var = tk.StringVar(value="MS Token Cache: (not saved)")
         self.ms_token_ts_label_var = tk.StringVar(value="MS Token Timestamp: (not saved)")
         self.ms_token_valid_label_var = tk.StringVar(value="MS Token Valid: (not checked)")
@@ -176,9 +185,10 @@ class SettingsTab:
         self.ms_summary = ttk.Frame(current_frame)
         self.ms_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         ttk.Label(self.ms_summary, textvariable=self.ms_username_label_var).grid(row=0, column=0, sticky="w", pady=2)
-        ttk.Label(self.ms_summary, textvariable=self.ms_token_cache_label_var).grid(row=1, column=0, sticky="w", pady=2)
-        ttk.Label(self.ms_summary, textvariable=self.ms_token_ts_label_var).grid(row=2, column=0, sticky="w", pady=2)
-        ttk.Label(self.ms_summary, textvariable=self.ms_token_valid_label_var).grid(row=3, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_email_address_label_var).grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_token_cache_label_var).grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_token_ts_label_var).grid(row=3, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_token_valid_label_var).grid(row=4, column=0, sticky="w", pady=2)
 
         self.update_current_settings_display()
 
@@ -244,7 +254,9 @@ class SettingsTab:
         cache_label = "(saved)" if cache_value else "(empty)"
         ts_label = self.settings.get("ms_token_ts") or "(NA)"
         ms_username_label = self.settings.get("ms_username") or "(empty)"
+        ms_email_label = self.settings.get("ms_email_address") or "(empty)"
         self.ms_username_label_var.set(f"MS Username: {ms_username_label}")
+        self.ms_email_address_label_var.set(f"MS Email Address: {ms_email_label}")
         self.ms_token_cache_label_var.set(f"MS Token Cache: {cache_label}")
         self.ms_token_ts_label_var.set(f"MS Token Timestamp: {ts_label}")
         is_valid = getattr(self, "valid_ms_cached_token", None)
@@ -326,6 +338,78 @@ class SettingsTab:
         data = self.secure_config.load() or {}
         if ms_username:
             data["ms_username"] = ms_username
+        ms_email = getattr(self, "ms_email_address_var", None)
+        if ms_email:
+            data["ms_email_address"] = ms_email.get()
         if timestamp:
             data["ms_token_ts"] = timestamp
         self.secure_config.save(data)
+
+    def send_ms_test_email(self) -> None:
+        if getattr(self, "_ms_test_in_progress", False):
+            return
+
+        ms_email = self.ms_email_address_var.get().strip()
+        if not ms_email:
+            messagebox.showerror("MS Auth", "Please enter an MS Email Address before sending a test email.")
+            return
+        if not hasattr(self, "msal_token_provider"):
+            messagebox.showerror("MS Auth", "MSAL token provider is not configured.")
+            return
+
+        self._ms_test_in_progress = True
+        if getattr(self, "send_ms_test_button", None):
+            self.send_ms_test_button.state(["disabled"])
+
+        def _worker():
+            try:
+                cfg = {"ms_token": {"ms_email_address": ms_email}}
+                msg = EmailMessage()
+                msg["To"] = ms_email
+                msg["Subject"] = "MS Auth Test"
+                msg.set_content("Success")
+
+                send_email_via_graph(
+                    cfg,
+                    msg,
+                    token_provider=self.msal_token_provider,
+                    interactive=True,
+                    secure_config=getattr(self, "secure_config", None),
+                )
+                self.root.after(0, lambda: messagebox.showinfo("MS Auth", "Test email sent successfully."))
+            except Exception as exc:
+                self.root.after(0, lambda err=exc: self._show_error_with_copy("MS Auth", f"Could not send test email:\n{err}"))
+            finally:
+                self._ms_test_in_progress = False
+                if getattr(self, "send_ms_test_button", None):
+                    self.root.after(0, lambda: self.send_ms_test_button.state(["!disabled"]))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _show_error_with_copy(self, title: str, message: str) -> None:
+        popup = tk.Toplevel(self.root)
+        popup.title(title)
+        popup.transient(self.root)
+        popup.grab_set()
+
+        frame = ttk.Frame(popup, padding=10)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text=title, font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 6))
+
+        text = tk.Text(frame, height=6, width=60, wrap="word")
+        text.insert("1.0", message)
+        text.config(state="disabled")
+        text.pack(fill="both", expand=True)
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(8, 0))
+        ttk.Button(buttons, text="Copy Error", command=lambda: self._copy_text_to_clipboard(message)).pack(side="left")
+        ttk.Button(buttons, text="Close", command=popup.destroy).pack(side="right")
+
+    def _copy_text_to_clipboard(self, value: str) -> None:
+        if not value:
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(value)
+        self.root.update()
