@@ -65,10 +65,10 @@ class SettingsTab:
 
         auth_frame = ttk.LabelFrame(container, text="Authentication")
         auth_frame.pack(**self._auth_frame_pack_opts)
-        ttk.Radiobutton(auth_frame, text="SMTP", variable=self.email_auth_method_var, value="smtp", command=self._refresh_auth_frames).grid(
+        ttk.Radiobutton(auth_frame, text="SMTP", variable=self.email_auth_method_var, value="smtp", command=self._handle_email_auth_toggle).grid(
             row=0, column=0, padx=5, pady=2, sticky="w"
         )
-        ttk.Radiobutton(auth_frame, text="MS Auth", variable=self.email_auth_method_var, value="ms_auth", command=self._refresh_auth_frames).grid(
+        ttk.Radiobutton(auth_frame, text="MS Auth", variable=self.email_auth_method_var, value="ms_auth", command=self._handle_email_auth_toggle).grid(
             row=0, column=1, padx=5, pady=2, sticky="w"
         )
 
@@ -277,6 +277,12 @@ class SettingsTab:
             self.ms_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         else:
             self.smtp_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+
+    def _handle_email_auth_toggle(self, *_):
+        # Keep the backing settings dict in sync with the selected auth method.
+        self.settings["email_auth_method"] = self.email_auth_method_var.get()
+        self._refresh_auth_frames()
+        self.update_current_settings_display()
 
     def fetch_ms_auth_token(self):
         if getattr(self, "_ms_auth_in_progress", False):

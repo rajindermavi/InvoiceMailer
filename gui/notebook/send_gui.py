@@ -10,7 +10,7 @@ from backend.workflow import (
     db_mgmt,
     prep_and_send_emails,
     prep_invoice_zips,
-    run_workflow,
+    #run_workflow,
     scan_for_invoices,
 )
 
@@ -92,13 +92,24 @@ class SendTab:
             if dry_run is None:
                 dry_run = (workflow_kwargs.get("mode") or "").lower() == "test"
 
+            email_auth_method = workflow_kwargs['email_auth_method']
+            smtp_config = workflow_kwargs["smtp_config"]
+            ms_auth_config = workflow_kwargs['ms_auth_config']
+            token_provider = getattr(self, "msal_token_provider", None)
+            secure_config = getattr(self, "secure_config", None)
+
+
             email_report = prep_and_send_emails(
-                workflow_kwargs["smtp_config"],
+                email_auth_method,
+                smtp_config,
+                ms_auth_config,
                 workflow_kwargs["email_setup"],
                 self.email_shipment,
                 period_str,
                 change_report,
                 dry_run=dry_run,
+                token_provider=token_provider,
+                secure_config=secure_config,
             )
             self.root.after(0, lambda: self._on_send_complete(email_report, change_report))
         except Exception as exc:  # noqa: BLE001
@@ -128,18 +139,18 @@ class SendTab:
             self.log(str(exc))
         messagebox.showerror("Email Send Failed", str(exc))
 
-    def handle_run_workflow(self):
-        threading.Thread(
-            target=self._run_workflow_thread, daemon=True
-        ).start()
+    #def handle_run_workflow(self):
+    #    threading.Thread(
+    #        target=self._run_workflow_thread, daemon=True
+    #    ).start()
 
-    def _run_workflow_thread(self):
-        try:
-            workflow_kwargs = self._build_workflow_kwargs()
-            run_workflow(**workflow_kwargs)
-            self.log("Workflow finished.")
-        except Exception as exc:  # noqa: BLE001
-            messagebox.showerror("Workflow Failed", str(exc))
+    #def _run_workflow_thread(self):
+    #    try:
+    #        workflow_kwargs = self._build_workflow_kwargs()
+    #        run_workflow(**workflow_kwargs)
+    #        self.log("Workflow finished.")
+    #    except Exception as exc:  # noqa: BLE001
+    #        messagebox.showerror("Workflow Failed", str(exc))
 
     def update_send_mode_display(self):
         mode = getattr(self, "mode_var", None).get() if hasattr(self, "mode_var") else None

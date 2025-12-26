@@ -128,7 +128,7 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
         if isinstance(reporter_emails, str):
             reporter_emails = [email.strip() for email in reporter_emails.split(",") if email.strip()]
 
-        ms_token = {
+        ms_auth_config = {
             "ms_smtp_host":settings.get("ms_smtp_host"),
             "ms_smtp_port":settings.get("ms_smtp_port"),
             "ms_use_starttls":settings.get("ms_use_starttls"),
@@ -146,6 +146,7 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
             "agg": settings.get("aggregate_by", "head_office"),
             "period_month": settings.get("email_month"),
             "period_year": settings.get("email_year"),
+            "email_auth_method": settings.get("email_auth_method"),
             "smtp_config": {
                 "host": settings.get("smtp_host"),
                 "port": int(settings["smtp_port"]) if settings.get("smtp_port") else None,
@@ -154,13 +155,13 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
                 "from_addr": settings.get("smtp_from"),
                 "use_tls": settings.get("smtp_use_tls", True),
             },
+            "ms_auth_config": ms_auth_config,
             "email_setup": {
                 "subject_template": settings.get("subject_template"),
                 "body_template": settings.get("body_template"),
                 "sender_name": settings.get("sender_name"),
                 "reporter_emails": reporter_emails,
             },
-            "ms_token": ms_token,
             "mode": mode,
             "dry_run": mode == "Test",
         }

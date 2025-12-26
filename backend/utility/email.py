@@ -1,9 +1,10 @@
 import smtplib
-import msal
 from email.message import EmailMessage
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
+
+from gui.msal_device_code import send_email_via_graph
 
 DEFAULT_SUBJECT_TEMPLATE = "Invoices for {head_office_name}"
 DEFAULT_BODY_TEMPLATE = (
@@ -30,9 +31,15 @@ class SMTPConfig:
     from_addr: str     # visible From: address
     use_tls: bool = True
 
+@dataclass
+class MSAuthConfig:
+    host: str
+    port: int
+    starttls: str
+    ms_email_address: str
 
 def build_email(batch: ClientBatch,
-                smtp_conf: SMTPConfig,
+                from_addr: str,
                 subject_template,
                 body_template,
                 sender_name,
@@ -55,7 +62,7 @@ def build_email(batch: ClientBatch,
     msg = EmailMessage()
 
     # Headers
-    msg["From"] = smtp_conf.from_addr
+    msg["From"] = from_addr
     msg["To"] = ", ".join(batch.email_list)  # all recipients for this client
 
     fmt_values = {
@@ -92,7 +99,9 @@ def build_email(batch: ClientBatch,
 
 def send_all_emails(
     batches: List[ClientBatch],
+    email_auth_method: str,
     smtp_conf: SMTPConfig,
+    ms_auth_conf: Optional[Union[MSAuthConfig, dict]] = None,
     change_report: Optional[str] = None,
     dry_run: bool = False,
     subject_template: str = DEFAULT_SUBJECT_TEMPLATE,
@@ -100,8 +109,22 @@ def send_all_emails(
     sender_name: str = "Your Company",  
     period: str = "last month",
     reporter_emails: Optional[List[str]] = None,
+    token_provider=None,
+    secure_config=None,
 ) -> None:
     reporter_emails = reporter_emails or []
+    auth_method = (email_auth_method or "smtp").lower()
+    use_ms_auth = auth_method == "ms_auth"
+
+    def _ms_email(cfg: Optional[Union[MSAuthConfig, dict]]) -> str:
+        if isinstance(cfg, dict):
+            return cfg.get("ms_email_address") or ""
+        return getattr(cfg, "ms_email_address", "") if cfg else ""
+
+    ms_email_address = _ms_email(ms_auth_conf)
+
+    if use_ms_auth and not ms_email_address:
+        raise ValueError("MS Auth email address is required when email_auth_method is 'ms_auth'.")
 
     def _get_body_text(msg: EmailMessage) -> str:
         body_part = msg.get_body(preferencelist=("plain",))
@@ -124,14 +147,45 @@ def send_all_emails(
             log_text = f"<<<TEST ONLY DRY RUN>>>\n{log_text}\n<<<END TEST ONLY DRY RUN>>>"
         return log_text
 
+    from_addr = ms_email_address if use_ms_auth and ms_email_address else smtp_conf.from_addr
     activity_log: List[str] = []
 
     if dry_run:
         # No network calls, just record what would have been sent.
         for batch in batches:
-            msg = build_email(batch, smtp_conf, subject_template, body_template, sender_name, period)
+            msg = build_email(batch, from_addr, subject_template, body_template, sender_name, period)
             activity_log.append(_activity_entry("Would send to", batch, msg))
         return _build_activity_log(activity_log, is_dry_run=True)
+
+    if use_ms_auth:
+        for batch in batches:
+            msg = build_email(batch, from_addr, subject_template, body_template, sender_name, period)
+            send_email_via_graph(
+                ms_auth_conf or {},
+                msg,
+                token_provider=token_provider,
+                interactive=False,
+                secure_config=secure_config,
+            )
+            activity_log.append(_activity_entry("Sent via MS Auth to", batch, msg))
+
+        activity_log = _build_activity_log(activity_log, is_dry_run=False)
+
+        if reporter_emails and activity_log:
+            report = EmailMessage()
+            report["From"] = from_addr
+            report["To"] = ", ".join(reporter_emails)
+            report["Subject"] = f"Invoice mailer report for {period}"
+            report.set_content(activity_log)
+            send_email_via_graph(
+                ms_auth_conf or {},
+                report,
+                token_provider=token_provider,
+                interactive=False,
+                secure_config=secure_config,
+            )
+            print(f"Sent activity report to {reporter_emails}")
+        return activity_log
 
     with smtplib.SMTP(smtp_conf.host, smtp_conf.port) as server:
         # Advertised capabilities are only available after EHLO.
@@ -154,7 +208,7 @@ def send_all_emails(
             server.login(smtp_conf.username, smtp_conf.password)
 
         for batch in batches:
-            msg = build_email(batch, smtp_conf, subject_template, body_template, sender_name, period)
+            msg = build_email(batch, smtp_conf.from_addr, subject_template, body_template, sender_name, period)
             server.send_message(msg)
             print(f"Sent email to {batch.email_list} with {batch.zip_path}")
             activity_log.append(_activity_entry("Sent to", batch, msg))
