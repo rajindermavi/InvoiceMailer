@@ -6,6 +6,7 @@ from typing import Optional, Callable, Dict
 import msal
 import smtplib
 from email.message import EmailMessage
+from email.utils import getaddresses
 try:
     from tkinter import messagebox  # GUI popup for device-code instructions
 except Exception:  # pragma: no cover - fallback for non-GUI contexts
@@ -361,20 +362,39 @@ def _emailmessage_to_graph_payload(
     msg: EmailMessage,
     from_address: str,
 ) -> Dict:
-    to_addrs = []
-    if msg.get_all("To"):
-        for addr in msg.get_all("To"):
-            to_addrs.append(
-                {"emailAddress": {"address": addr}}
-            )
+    def _body_content(msg: EmailMessage) -> tuple[str, str]:
+        """
+        Returns (content, graph_content_type) where graph_content_type is
+        either "Text" or "HTML".
+        """
+        # Prefer a plain part, fall back to HTML, then to the raw content.
+        preferred_part = msg.get_body(preferencelist=("plain", "html"))
+        if preferred_part:
+            content_type = preferred_part.get_content_type()
+            content = preferred_part.get_content()
+        elif not msg.is_multipart():
+            content_type = msg.get_content_type()
+            content = msg.get_content()
+        else:
+            # Multipart without a text part; send an empty text body.
+            content_type = "text/plain"
+            content = ""
 
-    body_text = msg.get_content()
+        graph_type = "HTML" if content_type == "text/html" else "Text"
+        return content or "", graph_type
+
+    to_addrs = []
+    for _, addr in getaddresses(msg.get_all("To") or []):
+        if addr:
+            to_addrs.append({"emailAddress": {"address": addr}})
+
+    body_text, body_type = _body_content(msg)
 
     payload = {
         "message": {
             "subject": msg.get("Subject", ""),
             "body": {
-                "contentType": "Text",
+                "contentType": body_type,
                 "content": body_text,
             },
             "from": {
