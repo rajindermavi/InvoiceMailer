@@ -22,6 +22,8 @@ MS_SCOPES = ["https://outlook.office365.com/SMTP.Send"]
 #GRAPH_SCOPES = ["Mail.Send"]
 GRAPH_MAIL_SCOPES = ["https://graph.microsoft.com/Mail.Send"]
 #DEFAULT_MS_EX_DELEGATED = "https://outlook.office365.com/.default"
+ORG_AUTHORITY = "https://login.microsoftonline.com/organizations"
+CONSUMER_AUTHORITY = "https://login.microsoftonline.com/consumers"
 
 # ---------------------------------------------------------------------------
 # Token provider using MSAL device code flow
@@ -35,22 +37,43 @@ class MSalDeviceCodeTokenProvider:
     TOKEN_CACHE_KEY = "ms_token_cache"
     MS_USERNAME_KEY = "ms_username"
 
-    def __init__(self, secure_config: SecureConfig | None = None, show_message: Callable[[object], None] | None = None) -> None:
+    def __init__(self, secure_config: SecureConfig | None = None, authority: str | None = None, show_message: Callable[[object], None] | None = None) -> None:
         self.secure_config = secure_config
         self._show_message = show_message
 
         self._cache = msal.SerializableTokenCache()
         self._load_cache()
 
-        
-        authority = "https://login.microsoftonline.com/common"
+        self.authority = self.resolve_authority(authority)
 
+        self._app = self._build_app()
 
-        self._app = msal.PublicClientApplication(
+    @staticmethod
+    def resolve_authority(authority: str | None) -> str:
+        if not authority:
+            return ORG_AUTHORITY
+        if authority.startswith("http"):
+            return authority
+        authority_key = authority.lower()
+        if authority_key in ("organizations", "org", "work", "work/school", "work_school"):
+            return ORG_AUTHORITY
+        if authority_key in ("consumers", "consumer", "personal", "outlook"):
+            return CONSUMER_AUTHORITY
+        return ORG_AUTHORITY
+
+    def _build_app(self) -> msal.PublicClientApplication:
+        return msal.PublicClientApplication(
             client_id=CLIENT_ID_UNIV,
-            authority=authority,
+            authority=self.authority,
             token_cache=self._cache,
         )
+
+    def set_authority(self, authority: str | None) -> None:
+        new_authority = self.resolve_authority(authority)
+        if new_authority == getattr(self, "authority", None):
+            return
+        self.authority = new_authority
+        self._app = self._build_app()
 
     def _load_cache(self) -> None:
         if self.secure_config:
@@ -174,6 +197,7 @@ def connect_smtp_with_oauth(
         with connect_smtp_with_oauth(cfg, token_provider) as smtp:
             smtp.send_message(msg)
     """
+    authority_value = cfg.get("ms_authority") if isinstance(cfg, dict) else None
     host = cfg.get("ms_smtp_host") or "smtp.office365.com"
     port = cfg.get("ms_smtp_port") or 587
     try:
@@ -182,7 +206,9 @@ def connect_smtp_with_oauth(
         raise ValueError(f"Invalid MS SMTP port: {port!r}") from None
 
     if token_provider is None:
-        token_provider = MSalDeviceCodeTokenProvider(secure_config=secure_config)
+        token_provider = MSalDeviceCodeTokenProvider(secure_config=secure_config, authority=authority_value)
+    elif authority_value:
+        token_provider.set_authority(authority_value)
 
     user_email = cfg.get("ms_email_address") or getattr(token_provider, "ms_username", None)
 
@@ -303,10 +329,14 @@ def connect_graph_with_oauth(
         with connect_graph_with_oauth(cfg, token_provider) as graph:
             graph.send_message(msg)
     """
+    authority_value = cfg.get("ms_authority") if isinstance(cfg, dict) else None
     if token_provider is None:
         token_provider = MSalDeviceCodeTokenProvider(
-            secure_config=secure_config
+            secure_config=secure_config,
+            authority=authority_value,
         )
+    elif authority_value:
+        token_provider.set_authority(authority_value)
 
     from_address = cfg.get("ms_email_address") or getattr(
         token_provider, "ms_username", None

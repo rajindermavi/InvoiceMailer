@@ -34,6 +34,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "ms_email_address":"",
     "ms_token_cache":"",
     "ms_token_ts":"",
+    "ms_authority":"organizations",
     "smtp_username": "",
     "smtp_password": "",
     "smtp_from": "",

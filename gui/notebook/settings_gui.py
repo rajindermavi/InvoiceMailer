@@ -82,6 +82,7 @@ class SettingsTab:
         self.ms_email_address_var = tk.StringVar()
         self.ms_token_cache_var = tk.StringVar()
         self.ms_token_ts_var = tk.StringVar()
+        self.ms_authority_var = tk.StringVar(value="organizations")
 
         self._settings_vars = {
             "invoice_folder": self.invoice_folder_var,
@@ -101,8 +102,10 @@ class SettingsTab:
             "ms_email_address": self.ms_email_address_var,
             "ms_token_cache": self.ms_token_cache_var,
             "ms_token_ts": self.ms_token_ts_var,
+            "ms_authority": self.ms_authority_var,
         }
         apply_settings_to_vars(self._settings_vars, self.settings)
+        self.ms_authority_var.trace_add("write", self._handle_ms_authority_change)
 
         self.auth_content = ttk.Frame(container)
         self.auth_content.pack(**self._auth_frame_pack_opts)
@@ -113,10 +116,27 @@ class SettingsTab:
         self.fetch_ms_token_button = ttk.Button(self.ms_auth_frame, text="Fetch MS Auth Token", command=self.fetch_ms_auth_token)
         self.fetch_ms_token_button.grid(row=0, column=0, padx=5, pady=2, sticky="w")
         #ttk.Label(self.ms_auth_frame, textvariable=self.ms_auth_status_var, foreground="#555").grid(row=0, column=1, sticky="w")
-        ttk.Label(self.ms_auth_frame, text="MS Email Address:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(self.ms_auth_frame, textvariable=self.ms_email_address_var, width=40).grid(row=1, column=1, padx=5, pady=2, sticky="w")
+        ttk.Label(self.ms_auth_frame, text="Account Type:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
+        authority_frame = ttk.Frame(self.ms_auth_frame)
+        authority_frame.grid(row=1, column=1, padx=5, pady=2, sticky="w")
+        ttk.Radiobutton(
+            authority_frame,
+            text="Work/School (organizations)",
+            variable=self.ms_authority_var,
+            value="organizations",
+            command=self._handle_ms_authority_change,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Radiobutton(
+            authority_frame,
+            text="Personal Outlook (consumers)",
+            variable=self.ms_authority_var,
+            value="consumers",
+            command=self._handle_ms_authority_change,
+        ).pack(side="left")
+        ttk.Label(self.ms_auth_frame, text="MS Email Address:").grid(row=2, column=0, sticky="w", padx=5, pady=2)
+        ttk.Entry(self.ms_auth_frame, textvariable=self.ms_email_address_var, width=40).grid(row=2, column=1, padx=5, pady=2, sticky="w")
         self.send_ms_test_button = ttk.Button(self.ms_auth_frame, text="Send Test Email", command=self.send_ms_test_email)
-        self.send_ms_test_button.grid(row=2, column=0, padx=5, pady=2, sticky="w")
+        self.send_ms_test_button.grid(row=3, column=0, padx=5, pady=2, sticky="w")
 
         ttk.Label(self.smtp_frame, text="Host:").grid(row=0, column=0, sticky="w")
         ttk.Entry(self.smtp_frame, textvariable=self.smtp_host_var, width=40).grid(row=0, column=1, padx=5, sticky="w")
@@ -162,6 +182,7 @@ class SettingsTab:
         self.ms_token_cache_label_var = tk.StringVar(value="MS Token Cache: (not saved)")
         self.ms_token_ts_label_var = tk.StringVar(value="MS Token Timestamp: (not saved)")
         self.ms_token_valid_label_var = tk.StringVar(value="MS Token Valid: (not checked)")
+        self.ms_authority_label_var = tk.StringVar(value="MS Authority: (not saved)")
 
         cfg_summary = ttk.Frame(current_frame)
         cfg_summary.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
@@ -186,9 +207,10 @@ class SettingsTab:
         self.ms_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         ttk.Label(self.ms_summary, textvariable=self.ms_username_label_var).grid(row=0, column=0, sticky="w", pady=2)
         ttk.Label(self.ms_summary, textvariable=self.ms_email_address_label_var).grid(row=1, column=0, sticky="w", pady=2)
-        ttk.Label(self.ms_summary, textvariable=self.ms_token_cache_label_var).grid(row=2, column=0, sticky="w", pady=2)
-        ttk.Label(self.ms_summary, textvariable=self.ms_token_ts_label_var).grid(row=3, column=0, sticky="w", pady=2)
-        ttk.Label(self.ms_summary, textvariable=self.ms_token_valid_label_var).grid(row=4, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_authority_label_var).grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_token_cache_label_var).grid(row=3, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_token_ts_label_var).grid(row=4, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_token_valid_label_var).grid(row=5, column=0, sticky="w", pady=2)
 
         self.update_current_settings_display()
 
@@ -255,8 +277,10 @@ class SettingsTab:
         ts_label = self.settings.get("ms_token_ts") or "(NA)"
         ms_username_label = self.settings.get("ms_username") or "(empty)"
         ms_email_label = self.settings.get("ms_email_address") or "(empty)"
+        ms_authority_label = self.settings.get("ms_authority") or "(empty)"
         self.ms_username_label_var.set(f"MS Username: {ms_username_label}")
         self.ms_email_address_label_var.set(f"MS Email Address: {ms_email_label}")
+        self.ms_authority_label_var.set(f"MS Authority: {ms_authority_label}")
         self.ms_token_cache_label_var.set(f"MS Token Cache: {cache_label}")
         self.ms_token_ts_label_var.set(f"MS Token Timestamp: {ts_label}")
         is_valid = getattr(self, "valid_ms_cached_token", None)
@@ -282,6 +306,17 @@ class SettingsTab:
         # Keep the backing settings dict in sync with the selected auth method.
         self.settings["email_auth_method"] = self.email_auth_method_var.get()
         self._refresh_auth_frames()
+        self.update_current_settings_display()
+
+    def _handle_ms_authority_change(self, *_):
+        value = (self.ms_authority_var.get() or "organizations").strip() or "organizations"
+        if hasattr(self, "settings"):
+            self.settings["ms_authority"] = value
+        provider = getattr(self, "msal_token_provider", None)
+        if provider and hasattr(provider, "set_authority"):
+            provider.set_authority(value)
+        if hasattr(self, "valid_ms_cached_token"):
+            self.valid_ms_cached_token = None
         self.update_current_settings_display()
 
     def fetch_ms_auth_token(self):
@@ -349,6 +384,9 @@ class SettingsTab:
             data["ms_email_address"] = ms_email.get()
         if timestamp:
             data["ms_token_ts"] = timestamp
+        ms_authority = getattr(self, "ms_authority_var", None)
+        if ms_authority:
+            data["ms_authority"] = ms_authority.get()
         self.secure_config.save(data)
 
     def send_ms_test_email(self) -> None:
@@ -369,7 +407,7 @@ class SettingsTab:
 
         def _worker():
             try:
-                cfg = {"ms_token": {"ms_email_address": ms_email}}
+                cfg = {"ms_token": {"ms_email_address": ms_email, "ms_authority": self.ms_authority_var.get()}}
                 msg = EmailMessage()
                 msg["To"] = ms_email
                 msg["Subject"] = "MS Auth Test"
