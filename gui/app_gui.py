@@ -104,7 +104,9 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
             self.update_email_settings_display()
         if hasattr(self, "update_send_mode_display"):
             self.update_send_mode_display()
-        messagebox.showinfo("Saved", "Settings saved successfully!")
+        is_keyring = getattr(self.secure_config, "is_keyring_backed", lambda: False)()
+        msg = "All data securely encrypted!" if is_keyring else "Settings saved successfully!"
+        messagebox.showinfo("Saved", msg)
 
     def _build_workflow_kwargs(self) -> dict:
         # Merge persisted settings with any current edits on the form.

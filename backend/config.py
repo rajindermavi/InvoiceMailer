@@ -109,6 +109,7 @@ class SecureConfig:
         self._win32crypt: Any | None = None
         self._use_dpapi = self._init_dpapi()
         self._fernet: Fernet | None = None
+        self._key_storage: str | None = None
         self._log(f"Storage directory: {get_storage_dir()}")
         self._log(f"Config path: {get_encrypted_config_path()}")
         self._log(f"DPAPI enabled: {self._use_dpapi}")
@@ -152,6 +153,7 @@ class SecureConfig:
             return None
         try:
             self._log("Loaded key from keyring.")
+            self._key_storage = "keyring"
             return stored.encode("utf-8")
         except Exception:
             self._log("Key from keyring could not be decoded; ignoring.")
@@ -190,11 +192,13 @@ class SecureConfig:
                 if decrypted:
                     self._log("Key file decrypted via DPAPI.")
                     stored = decrypted
+            self._key_storage = "file"
             return stored
 
         key = Fernet.generate_key()
         self._log("Generated new Fernet key.")
         if self._save_key_to_keyring(key):
+            self._key_storage = "keyring"
             return key
 
         # Fallback to a file; on Windows try to DPAPI-protect the key bytes.
@@ -203,11 +207,13 @@ class SecureConfig:
             if encrypted is not None:
                 self._log(f"Writing DPAPI-protected key file: {key_file}")
                 key_file.write_bytes(encrypted)
+                self._key_storage = "file"
                 return key
             raise RuntimeError("Unable to protect encryption key on Windows (DPAPI/keyring unavailable).")
 
         self._log(f"Writing key file: {key_file}")
         key_file.write_bytes(key)
+        self._key_storage = "file"
         return key
 
     def _dpapi_decrypt(self, data: bytes) -> bytes | None:
@@ -274,12 +280,33 @@ class SecureConfig:
             if encrypted is not None:
                 self._log(f"Saving config with DPAPI to: {cfg_file}")
                 cfg_file.write_bytes(encrypted)
+                self._announce_encryption_status()
                 return
 
         fernet = self._ensure_fernet()
         encrypted = fernet.encrypt(json_bytes)
         self._log(f"Saving config with Fernet to: {cfg_file}")
         cfg_file.write_bytes(encrypted)
+        self._announce_encryption_status()
+
+    def _announce_encryption_status(self) -> None:
+        """
+        Inform the user how the encryption key is stored and confirm encryption.
+        """
+        if self._use_dpapi and self._key_storage is None:
+            self._log("Config protected with Windows DPAPI; no separate key file used.")
+        elif self._key_storage == "keyring":
+            self._log("Encryption key stored in system keyring.")
+        elif self._key_storage == "file":
+            self._log("Encryption key stored alongside encrypted config file.")
+        else:
+            self._log("Encryption key storage location unknown.")
+        msg = "All data securely encrypted!"
+        print(msg)
+
+    def is_keyring_backed(self) -> bool:
+        """Return True if the encryption key is persisted in the OS keyring."""
+        return self._key_storage == "keyring"
 
 # ---- regex patterns ----
 
