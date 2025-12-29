@@ -55,6 +55,12 @@ class SendTab:
         self.log_box.pack(fill="both", expand=True, pady=10)
 
     def start_send(self):
+        try:
+            # Validate required settings before launching the worker thread.
+            self._build_workflow_kwargs()
+        except ValueError as exc:
+            messagebox.showerror("Missing Settings", str(exc))
+            return
         self.start_send_button.state(["disabled"])
         self.progress["value"] = 0
         threading.Thread(target=self._send_thread, daemon=True).start()

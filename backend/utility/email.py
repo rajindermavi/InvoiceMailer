@@ -123,7 +123,7 @@ def send_all_emails(
 
     ms_email_address = _ms_email(ms_auth_conf)
 
-    if use_ms_auth and not ms_email_address:
+    if not dry_run and use_ms_auth and not ms_email_address:
         raise ValueError("MS Auth email address is required when email_auth_method is 'ms_auth'.")
 
     def _get_body_text(msg: EmailMessage) -> str:
