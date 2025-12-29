@@ -7,13 +7,12 @@ import traceback
 
 from backend.db.db import get_client_list
 from backend.workflow import (
-    db_mgmt,
     prep_and_send_emails,
     prep_invoice_zips,
     #run_workflow,
     scan_for_invoices,
 )
-
+from backend.db.db_utility import db_mgmt
 
 class SendTab:
     """

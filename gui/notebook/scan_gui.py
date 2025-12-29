@@ -7,7 +7,8 @@ from tkinter import messagebox, ttk
 import traceback
 
 from backend.db.db import get_client_list
-from backend.workflow import db_mgmt, scan_for_invoices
+from backend.workflow import scan_for_invoices
+from backend.db.db_utility import db_mgmt
 
 
 class ScanTab:
