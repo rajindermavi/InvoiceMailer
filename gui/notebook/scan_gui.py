@@ -27,8 +27,11 @@ class ScanTab:
         self.start_scan_button = ttk.Button(frame, text="Start Scan", command=self.start_scan)
         self.start_scan_button.pack(pady=(10, 0))
 
+
+        self.scan_report_var = tk.StringVar()
         ttk.Label(
             frame,
+            textvariable=self.scan_report_var,
             wraplength=800,
             justify="left"
         ).pack(fill="x", padx=5, pady=(5, 10))
@@ -63,7 +66,7 @@ class ScanTab:
 
     def start_scan(self):
         self.start_scan_button.state(["disabled"])
-        self.change_report_var.set("Scanning...")
+        self.scan_report_var.set("Scanning...")
         threading.Thread(target=self._scan_thread, daemon=True).start()
 
     def _scan_thread(self):
@@ -121,13 +124,13 @@ class ScanTab:
 
     def _on_scan_complete(self, rows: list[tuple]):
         message = "Scan completed."
-        self.change_report_var.set(message)
+        self.scan_report_var.set(message)
         self.update_scan_table(rows)
         self.start_scan_button.state(["!disabled"])
 
     def _on_scan_error(self, exc: Exception, tb: str | None = None):
         self.start_scan_button.state(["!disabled"])
-        self.change_report_var.set("")
+        self.scan_report_var.set("")
         if tb:
             print(tb)
         messagebox.showerror("Scan Failed", str(exc))
