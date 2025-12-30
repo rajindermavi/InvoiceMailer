@@ -78,7 +78,7 @@ class SendTab:
             if period_month is None or period_year is None:
                 raise ValueError("Month and year are required for sending emails.")
 
-            change_report = db_mgmt(
+            db_mgmt(
                 workflow_kwargs["client_directory"],
                 workflow_kwargs["invoice_folder"],
                 workflow_kwargs["soa_folder"],
@@ -111,12 +111,11 @@ class SendTab:
                 workflow_kwargs["email_setup"],
                 self.email_shipment,
                 period_str,
-                change_report,
                 dry_run=dry_run,
                 token_provider=token_provider,
                 secure_config=secure_config,
             )
-            self.root.after(0, lambda: self._on_send_complete(email_report, change_report))
+            self.root.after(0, lambda: self._on_send_complete(email_report))
         except Exception as exc:  # noqa: BLE001
             err = exc
             err_trace = traceback.format_exc()
@@ -126,12 +125,10 @@ class SendTab:
         self.log_box.insert("end", msg + "\n")
         self.log_box.see("end")
 
-    def _on_send_complete(self, email_report, change_report):
+    def _on_send_complete(self, email_report):
         self.progress["value"] = 100
         self.start_send_button.state(["!disabled"])
         self.log("Email send finished.")
-        if change_report:
-            self.log(f"Change report: {change_report}")
         if email_report:
             self.log(str(email_report))
 

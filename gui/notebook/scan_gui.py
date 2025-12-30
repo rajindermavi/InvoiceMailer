@@ -27,10 +27,8 @@ class ScanTab:
         self.start_scan_button = ttk.Button(frame, text="Start Scan", command=self.start_scan)
         self.start_scan_button.pack(pady=(10, 0))
 
-        self.change_report_var = tk.StringVar()
         ttk.Label(
             frame,
-            textvariable=self.change_report_var,
             wraplength=800,
             justify="left"
         ).pack(fill="x", padx=5, pady=(5, 10))
@@ -71,7 +69,7 @@ class ScanTab:
     def _scan_thread(self):
         try:
             workflow_kwargs = self._build_workflow_kwargs()
-            change_report = db_mgmt(
+            db_mgmt(
                 workflow_kwargs["client_directory"],
                 workflow_kwargs["invoice_folder"],
                 workflow_kwargs["soa_folder"],
@@ -85,7 +83,7 @@ class ScanTab:
             client_list = get_client_list(workflow_kwargs["agg"])
             invoices_to_ship = scan_for_invoices(client_list, period_str, workflow_kwargs["agg"])
             rows = self._flatten_invoice_rows(invoices_to_ship)
-            self.root.after(0, lambda: self._on_scan_complete(change_report, rows))
+            self.root.after(0, lambda: self._on_scan_complete(rows))
         except Exception as exc:  # noqa: BLE001
             err = exc
             err_trace = traceback.format_exc()
@@ -121,8 +119,8 @@ class ScanTab:
                 )
         return rows
 
-    def _on_scan_complete(self, change_report: str | None, rows: list[tuple]):
-        message = change_report or "Scan completed."
+    def _on_scan_complete(self, rows: list[tuple]):
+        message = "Scan completed."
         self.change_report_var.set(message)
         self.update_scan_table(rows)
         self.start_scan_button.state(["!disabled"])

@@ -4,7 +4,7 @@ import datetime as dt
 
 import pytest
 
-import db.db as db_module
+import backend.db.db as db_module
 
 
 @pytest.fixture
@@ -30,7 +30,9 @@ def test_add_or_update_client_persists_email_list(initialized_db):
         emails=["updated@example.com"],
     )
 
-    emails = db_module.get_client_email("ACME123")
+    emails = db_module.get_client_email(
+        head_office="ACME Corp", customer_number="ACME123"
+    )
     assert emails == ["updated@example.com"]
 
 
@@ -50,8 +52,8 @@ def test_record_invoice_and_mark_sent(initialized_db):
         period_month="2024-04",
     )
 
-    pending = db_module.get_unsent_invoices(
-        client_code="BETA456", period_month="2024-04"
+    pending = db_module.get_invoices(
+        customer_number="BETA456", period_month="2024-04", sent=0
     )
     assert len(pending) == 1
     invoice_row = pending[0]
@@ -65,7 +67,14 @@ def test_record_invoice_and_mark_sent(initialized_db):
         sent_at=sent_at,
     )
 
-    still_pending = db_module.get_unsent_invoices(
-        client_code="BETA456", period_month="2024-04"
+    still_pending = db_module.get_invoices(
+        customer_number="BETA456", period_month="2024-04", sent=0
     )
     assert still_pending == []
+
+    sent = db_module.get_invoices(
+        customer_number="BETA456", period_month="2024-04", sent=1
+    )
+    assert len(sent) == 1
+    assert sent[0]["sent_at"] == sent_at
+    assert sent[0]["send_error"] is None

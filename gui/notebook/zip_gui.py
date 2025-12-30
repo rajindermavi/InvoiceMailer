@@ -44,7 +44,7 @@ class ZipTab:
     def _preview_thread(self):
         try:
             workflow_kwargs = self._build_workflow_kwargs()
-            change_report = db_mgmt(
+            db_mgmt(
                 workflow_kwargs["client_directory"],
                 workflow_kwargs["invoice_folder"],
                 workflow_kwargs["soa_folder"],
@@ -67,7 +67,7 @@ class ZipTab:
                 for shipment in email_shipment
             ]
             self.email_shipment = email_shipment
-            status_message = change_report or "ZIP generation complete."
+            status_message = "ZIP generation complete."
             self.root.after(0, lambda: self._on_preview_complete(status_message, rows))
         except Exception as exc:  # noqa: BLE001
             err = exc

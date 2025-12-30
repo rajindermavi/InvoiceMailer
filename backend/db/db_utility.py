@@ -15,7 +15,7 @@ from backend.utility.read_xlsx import iter_xlsx_rows_as_dicts
 
 
 
-def db_mgmt(client_directory: Path, invoice_folder: Path, soa_folder: Path, *, force: bool = False):
+def db_mgmt(client_directory: Path, invoice_folder: Path, soa_folder: Path):
 
     inv_file_regex = get_file_regex('invoice')
     soa_file_regex = get_file_regex('soa')

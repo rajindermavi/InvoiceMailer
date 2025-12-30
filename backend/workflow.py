@@ -91,7 +91,6 @@ def prep_and_send_emails(
     email_setup,
     email_shipment,
     period_str: str,
-    change_report: str | None,
     dry_run: bool = False,
     token_provider=None,
     secure_config=None,
@@ -127,7 +126,6 @@ def prep_and_send_emails(
         email_auth_method,
         smtp_cfg,
         ms_auth_config,
-        change_report=change_report,
         dry_run=dry_run,
         **email_template_kwargs,
         token_provider=token_provider,
@@ -136,52 +134,3 @@ def prep_and_send_emails(
     if email_report is None and dry_run:
         email_report = "Dry run complete; emails were prepared but not sent."
     return email_report
-
-#def run_workflow(
-#        invoice_folder: Path | None = None,
-#        soa_folder: Path | None = None,
-#        client_directory: Path | None = None,
-#        zip_output_dir: Path | None = None,
-#        agg: str = "head_office",
-#        period_month: int | str | None = None,
-#        period_year: int | str | None = None,
-#        smtp_config: dict | None = None,
-#        email_setup: dict | None = None,
-#        email_auth_method: str | None = None,
-#        dry_run: bool | None = None,
-#        mode: str | None = None,
-#):
-#    change_report = db_mgmt(
-#        client_directory,
-#        invoice_folder,
-#        soa_folder
-#    )
-#
-#    if period_month is None or period_year is None:
-#        raise ValueError("period_month and period_year are required when sending emails.")
-#
-#    period_month = int(period_month)
-#    period_year = int(period_year)
-#    period_str = f"{period_year}-{period_month:02d}"
-#    resolved_dry_run = dry_run
-#    if resolved_dry_run is None:
-#        resolved_dry_run = (mode or "").lower() == "test"
-#
-#    client_list = get_client_list(agg)
-#
-#    invoices_to_ship = scan_for_invoices(client_list, period_str, agg)
-#    email_shipment = prep_invoice_zips(invoices_to_ship, zip_output_dir)
-#    email_report = prep_and_send_emails(
-#        smtp_config,
-#        email_setup,
-#        email_shipment,
-#        period_str,
-#        change_report,
-#        dry_run=resolved_dry_run,
-#    )
-#    return {"change_report": change_report,'email_report': email_report}
-
-
-
-# if __name__ == "__main__":
-#     run_workflow()

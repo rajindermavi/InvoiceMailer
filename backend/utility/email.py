@@ -102,7 +102,6 @@ def send_all_emails(
     email_auth_method: str,
     smtp_conf: SMTPConfig,
     ms_auth_conf: Optional[Union[MSAuthConfig, dict]] = None,
-    change_report: Optional[str] = None,
     dry_run: bool = False,
     subject_template: str = DEFAULT_SUBJECT_TEMPLATE,
     body_template: str = DEFAULT_BODY_TEMPLATE,
@@ -140,8 +139,6 @@ def send_all_emails(
     def _build_activity_log(entries: List[str], is_dry_run: bool) -> str:
         sep = "\n" + ("-" * 40) + "\n"
         log_text = f"Email sending activity for period: {period}" + sep.join(entries) + sep
-        if change_report:
-            log_text += f"\nChange Report:\n{change_report}\n"
         if is_dry_run:
             # Clear markers make it obvious this was not a real send.
             log_text = f"<<<TEST ONLY DRY RUN>>>\n{log_text}\n<<<END TEST ONLY DRY RUN>>>"
