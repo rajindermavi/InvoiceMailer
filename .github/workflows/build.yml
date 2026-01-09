@@ -24,26 +24,23 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      # 🔑 Inject version info (SAFE: done via Python)
+      # Inject version info (SAFE: done via Python)
       - name: Inject version info
         shell: pwsh
-        run: |
-          python - << 'EOF'
-          import tomllib
-          from datetime import date
-          import subprocess
+        run:  |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          $date = Get-Date -Format "yyyy.MM.dd"
+          $commit = git rev-parse HEAD
 
-          version = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
-          build_date = date.today().strftime("%Y.%m.%d")
-          commit = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
+          Set-Content version.py "VERSION = `"$version`""
+          Add-Content version.py "BUILD_DATE = `"$date`""
+          Add-Content version.py "GIT_COMMIT = `"$commit`""
 
-          with open("version.py", "w", encoding="utf-8") as f:
-              f.write(f'VERSION = "{version}"\n')
-              f.write(f'BUILD_DATE = "{build_date}"\n')
-              f.write(f'GIT_COMMIT = "{commit}"\n')
-          EOF
+      - name: Show version file
+        shell: pwsh
+        run: Get-Content version.py
 
-      # 🏗 Build EXE
+      # Build EXE
       - name: Build exe
         shell: pwsh
         run: |
@@ -51,7 +48,7 @@ jobs:
           $today = Get-Date -Format "yyyy.MM.dd"
           pyinstaller --onefile --noconsole --name "InvoiceMailer.v$version.$today" app.py
 
-      # 📦 Upload artifact
+      # Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
