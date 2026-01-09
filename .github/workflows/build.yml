@@ -31,11 +31,9 @@ jobs:
           $today = Get-Date -Format "yyyy.MM.dd"
           $commit = git rev-parse HEAD
 
-          @"
-VERSION = "$version"
-BUILD_DATE = "$today"
-GIT_COMMIT = "$commit"
-"@ | Out-File version.py -Encoding utf8
+          "VERSION = `"$version`"" | Out-File version.py -Encoding utf8
+          "BUILD_DATE = `"$today`"" | Add-Content version.py
+          "GIT_COMMIT = `"$commit`"" | Add-Content version.py
 
       # Build EXE
       - name: Build exe
