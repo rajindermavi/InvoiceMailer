@@ -10,7 +10,8 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,30 +24,38 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      # Inject version info
+      # 🔑 Inject version info (SAFE: done via Python)
       - name: Inject version info
-        shell: powershell
+        shell: pwsh
         run: |
-          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-          $today = Get-Date -Format "yyyy.MM.dd"
-          $commit = git rev-parse HEAD
+          python - << 'EOF'
+          import tomllib
+          from datetime import date
+          import subprocess
 
-          "VERSION = `"$version`"" | Out-File version.py -Encoding utf8
-          "BUILD_DATE = `"$today`"" | Add-Content version.py
-          "GIT_COMMIT = `"$commit`"" | Add-Content version.py
+          version = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          build_date = date.today().strftime("%Y.%m.%d")
+          commit = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
 
-      # Build EXE
+          with open("version.py", "w", encoding="utf-8") as f:
+              f.write(f'VERSION = "{version}"\n')
+              f.write(f'BUILD_DATE = "{build_date}"\n')
+              f.write(f'GIT_COMMIT = "{commit}"\n')
+          EOF
+
+      # 🏗 Build EXE
       - name: Build exe
-        shell: powershell
+        shell: pwsh
         run: |
           $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
           $today = Get-Date -Format "yyyy.MM.dd"
           pyinstaller --onefile --noconsole --name "InvoiceMailer.v$version.$today" app.py
 
-      # Upload artifact
+      # 📦 Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: InvoiceMailer-Windows
           path: dist/*.exe
+
 
