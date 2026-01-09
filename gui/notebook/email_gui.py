@@ -84,6 +84,11 @@ class EmailSettingsTab:
         current_frame = ttk.LabelFrame(container, text="Current Email Settings")
         current_frame.pack(fill="x", padx=5, pady=(0, 5))
         current_frame.columnconfigure(0, weight=1)
+        ttk.Style().configure(
+            "EmailWarning.TLabel",
+            foreground="gray40",
+            font=("TkDefaultFont", 9, "italic"),
+        )
 
         self.subject_label_var = tk.StringVar(value="Subject Template: (not saved)")
         self.sender_label_var = tk.StringVar(value="Sender Name: (not saved)")
@@ -97,7 +102,12 @@ class EmailSettingsTab:
         ttk.Label(current_frame, textvariable=self.reporters_label_var).grid(row=2, column=0, sticky="w", pady=2)
         ttk.Label(current_frame, textvariable=self.month_label_var).grid(row=3, column=0, sticky="w", pady=2)
         ttk.Label(current_frame, textvariable=self.year_label_var).grid(row=4, column=0, sticky="w", pady=2)
-        ttk.Label(current_frame, textvariable=self.body_label_var, wraplength=700, justify="left").grid(row=5, column=0, sticky="w", pady=2)
+        ttk.Label(
+            current_frame,
+            text="Scan will retrieve selected month and following month.",
+            style="EmailWarning.TLabel",
+        ).grid(row=5, column=0, sticky="w", pady=(2, 0))
+        ttk.Label(current_frame, textvariable=self.body_label_var, wraplength=700, justify="left").grid(row=6, column=0, sticky="w", pady=2)
 
         self.update_email_settings_display()
 
