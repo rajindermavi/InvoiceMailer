@@ -86,3 +86,9 @@ config.ini
 *.key
 *.crt
 *.enc   
+
+# build artifacts
+
+version.py
+dist/
+build/

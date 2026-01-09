@@ -1,0 +1,54 @@
+name: Windows Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # Inject version info
+      - name: Inject version info
+        shell: powershell
+        run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          $today = Get-Date -Format "yyyy.MM.dd"
+          $commit = git rev-parse HEAD
+
+          @"
+VERSION = `"$version`"
+BUILD_DATE = `"$today`"
+GIT_COMMIT = `"$commit`"
+"@ | Out-File version.py -Encoding utf8
+
+      # Build EXE
+      - name: Build exe
+        shell: powershell
+        run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          $today = Get-Date -Format "yyyy.MM.dd"
+          pyinstaller --onefile --noconsole --name "InvoiceMailer.v$version.$today" app.py
+
+      # Upload artifact
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InvoiceMailer-Windows
+          path: dist/*.exe
+
