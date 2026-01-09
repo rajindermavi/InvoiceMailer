@@ -87,7 +87,12 @@ class SendTab:
             client_list = get_client_list(workflow_kwargs["agg"])
 
             if not self.email_shipment:
-                invoices_to_ship = scan_for_invoices(client_list, period_str, workflow_kwargs["agg"])
+                invoices_to_ship = scan_for_invoices(
+                    client_list,
+                    period_year,
+                    period_month,
+                    workflow_kwargs["agg"],
+                )
                 self.email_shipment = prep_invoice_zips(
                     invoices_to_ship,
                     workflow_kwargs.get("zip_output_dir"),

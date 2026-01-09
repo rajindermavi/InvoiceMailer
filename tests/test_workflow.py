@@ -26,7 +26,7 @@ def test_scan_for_invoices_builds_per_client_results(monkeypatch):
         period = kwargs.get("period_month")
         return [
             {
-                "tax_invoice_no": f"INV-{cust}",
+                "tax_invoice_no": f"INV-{cust}-{period}",
                 "customer_number": cust,
                 "ship_name": "SHIP",
                 "invoice_date": f"{period}-01",
@@ -38,15 +38,21 @@ def test_scan_for_invoices_builds_per_client_results(monkeypatch):
     monkeypatch.setattr(workflow, "get_soa_by_head_office", fake_get_soa_by_head_office)
     monkeypatch.setattr(workflow, "get_invoices", fake_get_invoices)
 
-    result = workflow.scan_for_invoices(clients, "2024-05", "customer_number")
+    result = workflow.scan_for_invoices(clients, 2024, 5, "customer_number")
 
     assert set(result.keys()) == set(clients)
-    entry = result["CUST1"][0]
-    assert entry["customer_number"] == "CUST1"
-    assert entry["head_office_name"] == "HO-CUST1 Name"
-    assert entry["soa_path"] == "/soa/HO-CUST1.pdf"
-    assert entry["invoice_path"] == "/invoices/CUST1.pdf"
-    assert entry["invoice_number"] == "INV-CUST1"
+    entries = result["CUST1"]
+    assert len(entries) == 2
+    assert {entry["invoice_date"] for entry in entries} == {"2024-05-01", "2024-06-01"}
+    for entry in entries:
+        assert entry["customer_number"] == "CUST1"
+        assert entry["head_office_name"] == "HO-CUST1 Name"
+        assert entry["soa_path"] == "/soa/HO-CUST1.pdf"
+        assert entry["invoice_path"] == "/invoices/CUST1.pdf"
+    assert {entry["invoice_number"] for entry in entries} == {
+        "INV-CUST1-2024-05",
+        "INV-CUST1-2024-06",
+    }
 
 
 def test_prep_invoice_zips_creates_archives_and_email_payload(tmp_path, monkeypatch):

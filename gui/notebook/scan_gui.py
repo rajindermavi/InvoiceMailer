@@ -82,9 +82,13 @@ class ScanTab:
             if period_month is None or period_year is None:
                 raise ValueError("Month and year are required for scanning invoices.")
 
-            period_str = f"{int(period_year)}-{int(period_month):02d}"
             client_list = get_client_list(workflow_kwargs["agg"])
-            invoices_to_ship = scan_for_invoices(client_list, period_str, workflow_kwargs["agg"])
+            invoices_to_ship = scan_for_invoices(
+                client_list,
+                period_year,
+                period_month,
+                workflow_kwargs["agg"],
+            )
             rows = self._flatten_invoice_rows(invoices_to_ship)
             self.root.after(0, lambda: self._on_scan_complete(rows))
         except Exception as exc:  # noqa: BLE001

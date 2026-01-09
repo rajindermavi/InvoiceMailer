@@ -15,7 +15,18 @@ from backend.utility.email import ClientBatch, SMTPConfig, send_all_emails
 
 
 
-def scan_for_invoices(client_list:list,period_str:str,agg:str):
+def scan_for_invoices(
+    client_list: list,
+    period_year: int | str,
+    period_month: int | str,
+    agg: str,
+):
+    base_year = int(period_year)
+    base_month = int(period_month)
+    period_str = f"{base_year}-{base_month:02d}"
+    next_month = 1 if base_month == 12 else base_month + 1
+    next_year = base_year + 1 if base_month == 12 else base_year
+    next_period_str = f"{next_year}-{next_month:02d}"
     invoices_to_ship: dict[str, list[dict[str, str | None]]] = {}
 
     for client in client_list:
@@ -29,6 +40,7 @@ def scan_for_invoices(client_list:list,period_str:str,agg:str):
         head_office_name = soa_rows[0]["head_office_name"] if soa_rows else None
 
         invoices = get_invoices(**{agg: client}, period_month=period_str)
+        invoices += get_invoices(**{agg: client}, period_month=next_period_str)
         invoices_to_ship[client] = [
             {
                 "head_office_name": head_office_name,

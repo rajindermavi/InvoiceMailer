@@ -137,7 +137,7 @@ def normalize_first_date(dates: List[str]) -> Optional[str]:
     for d in dates:
         try:
             # Adjust dayfirst depending on your format
-            dt = dateparser.parse(d, dayfirst=False, fuzzy=True)
+            dt = dateparser.parse(d, dayfirst=True, fuzzy=True)
             return dt.date().isoformat()
         except Exception:
             continue
