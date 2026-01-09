@@ -38,6 +38,17 @@ class MSAuthConfig:
     starttls: str
     ms_email_address: str
 
+def normalize_recipients(email_list: list[str]) -> list[str]:
+    recipients: list[str] = []
+    for entry in email_list:
+        if not entry:
+            continue
+        for addr in entry.split(";"):
+            addr = addr.strip()
+            if addr:
+                recipients.append(addr)
+    return recipients
+
 def build_email(batch: ClientBatch,
                 from_addr: str,
                 subject_template,
@@ -63,7 +74,8 @@ def build_email(batch: ClientBatch,
 
     # Headers
     msg["From"] = from_addr
-    msg["To"] = ", ".join(batch.email_list)  # all recipients for this client
+    recipients = sorted(set(normalize_recipients(batch.email_list)))
+    msg["To"] = ", ".join(recipients)  # all recipients for this client
 
     fmt_values = {
         "head_office_name": batch.head_office_name,
@@ -138,7 +150,7 @@ def send_all_emails(
 
     def _build_activity_log(entries: List[str], is_dry_run: bool) -> str:
         sep = "\n" + ("-" * 40) + "\n"
-        log_text = f"Email sending activity for period: {period}" + sep.join(entries) + sep
+        log_text = f"Email sending activity for period: {period}\n\n" + sep.join(entries) + sep
         if is_dry_run:
             # Clear markers make it obvious this was not a real send.
             log_text = f"<<<TEST ONLY DRY RUN>>>\n{log_text}\n<<<END TEST ONLY DRY RUN>>>"
