@@ -32,9 +32,9 @@ jobs:
           $commit = git rev-parse HEAD
 
           @"
-VERSION = `"$version`"
-BUILD_DATE = `"$today`"
-GIT_COMMIT = `"$commit`"
+VERSION = "$version"
+BUILD_DATE = "$today"
+GIT_COMMIT = "$commit"
 "@ | Out-File version.py -Encoding utf8
 
       # Build EXE
