@@ -5,14 +5,14 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import traceback
 
-from backend.db.db import get_client_list
-from backend.workflow import (
+from src.backend.db.db import get_client_list
+from src.backend.workflow import (
     prep_and_send_emails,
     prep_invoice_zips,
     #run_workflow,
     scan_for_invoices,
 )
-from backend.db.db_utility import db_mgmt
+from src.backend.db.db_utility import db_mgmt
 
 class SendTab:
     """
@@ -102,23 +102,16 @@ class SendTab:
             if dry_run is None:
                 dry_run = (workflow_kwargs.get("mode") or "").lower() == "test"
 
-            email_auth_method = workflow_kwargs['email_auth_method']
-            smtp_config = workflow_kwargs["smtp_config"]
-            ms_auth_config = workflow_kwargs['ms_auth_config']
-            token_provider = getattr(self, "msal_token_provider", None)
-            secure_config = getattr(self, "secure_config", None)
-
-
             email_report = prep_and_send_emails(
-                email_auth_method,
-                smtp_config,
-                ms_auth_config,
+                workflow_kwargs['email_auth_method'],
+                workflow_kwargs["smtp_config"],
+                workflow_kwargs['ms_auth_config'],
                 workflow_kwargs["email_setup"],
                 self.email_shipment,
                 period_str,
                 dry_run=dry_run,
-                token_provider=token_provider,
-                secure_config=secure_config,
+                show_message=workflow_kwargs.get("show_message"),
+                passphrase=workflow_kwargs.get("passphrase"),
             )
             self.root.after(0, lambda: self._on_send_complete(email_report))
         except Exception as exc:  # noqa: BLE001

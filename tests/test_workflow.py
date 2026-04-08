@@ -3,7 +3,7 @@ from __future__ import annotations
 import zipfile
 from pathlib import Path
 
-import backend.workflow as workflow
+import src.backend.workflow as workflow
 
 
 def test_scan_for_invoices_builds_per_client_results(monkeypatch):

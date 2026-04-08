@@ -1,17 +1,17 @@
 
 from pathlib import Path
-from backend.config import (
+from src.backend.config import (
     get_file_regex
 )
-from backend.db.db_path import get_db_path
-from backend.db.db import (
+from src.backend.db.db_path import get_db_path
+from src.backend.db.db import (
     init_db,
     add_or_update_client,
     add_or_update_soa,
     record_invoice,
 )
-from backend.utility.extract_pdf_text import extract_pdf_date
-from backend.utility.read_xlsx import iter_xlsx_rows_as_dicts
+from src.backend.utility.extract_pdf_text import extract_pdf_date
+from src.backend.utility.read_xlsx import iter_xlsx_rows_as_dicts
 
 
 

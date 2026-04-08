@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Union
 
-from gui.msal_device_code import send_email_via_graph
+from src.gui.msal_device_code import send_email_via_graph
 
 DEFAULT_SUBJECT_TEMPLATE = "Invoices for {head_office_name}"
 DEFAULT_BODY_TEMPLATE = (

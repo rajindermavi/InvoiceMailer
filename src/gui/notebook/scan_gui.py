@@ -6,9 +6,9 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 import traceback
 
-from backend.db.db import get_client_list
-from backend.workflow import scan_for_invoices
-from backend.db.db_utility import db_mgmt
+from src.backend.db.db import get_client_list
+from src.backend.workflow import scan_for_invoices
+from src.backend.db.db_utility import db_mgmt
 
 
 class ScanTab:

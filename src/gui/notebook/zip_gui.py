@@ -6,9 +6,9 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import traceback
 
-from backend.workflow import prep_invoice_zips, scan_for_invoices
-from backend.db.db import get_client_list
-from backend.db.db_utility import db_mgmt
+from src.backend.workflow import prep_invoice_zips, scan_for_invoices
+from src.backend.db.db import get_client_list
+from src.backend.db.db_utility import db_mgmt
 
 
 class ZipTab:

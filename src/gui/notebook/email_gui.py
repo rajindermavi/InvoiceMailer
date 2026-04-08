@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 from datetime import datetime
 
-from gui.utility import apply_settings_to_vars
+from src.gui.utility import apply_settings_to_vars
 
 
 class _TextAdapter:

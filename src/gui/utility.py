@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, Mapping
 
-from backend.config import SecureConfig
+from src.backend.config import SecureConfig
 
 DEFAULT_SUBJECT_TEMPLATE = "Invoice Statement for {month}-{year}"
 DEFAULT_BODY_TEMPLATE = (
@@ -27,13 +27,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "mode": "Active",
     "smtp_host": "smtp.gmail.com",
     "smtp_port": "587",
-    "ms_smtp_host":"smtp.office365.com",
-    "ms_smtp_port":"587",
-    "ms_use_starttls":True,
-    "ms_username":"",
     "ms_email_address":"",
-    "ms_token_cache":"",
-    "ms_token_ts":"",
     "ms_authority":"organizations",
     "smtp_username": "",
     "smtp_password": "",

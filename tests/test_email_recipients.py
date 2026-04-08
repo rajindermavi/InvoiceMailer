@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from email.utils import getaddresses
 
-import backend.utility.email as email_util
+import src.backend.utility.send as email_util
 
 
 def _make_batch(tmp_path, email_list):

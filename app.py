@@ -1,5 +1,5 @@
-from gui.app_gui import start_gui
-from backend.config import is_frozen_exe
+from src.gui.app_gui import start_gui
+from src.backend.config import is_frozen_exe
 import os
 
 if is_frozen_exe():

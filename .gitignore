@@ -87,6 +87,11 @@ config.ini
 *.crt
 *.enc   
 
+# data
+*pdf
+*PDF
+*xlsx
+
 # build artifacts
 
 version.py

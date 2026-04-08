@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 from dateutil import parser as dateparser
 import fitz  # PyMuPDF
 
-from backend.config import (
+from src.backend.config import (
     get_date_regex,
     pdf_rect_settings,
     page_index,

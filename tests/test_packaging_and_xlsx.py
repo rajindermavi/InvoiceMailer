@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from openpyxl import Workbook
 
-from backend.utility.packaging import collect_files_to_zip
-from backend.utility.read_xlsx import iter_xlsx_rows_as_dicts
+from src.backend.utility.packaging import collect_files_to_zip
+from src.backend.utility.read_xlsx import iter_xlsx_rows_as_dicts
 
 
 def test_collect_files_to_zip_creates_archive(tmp_path):

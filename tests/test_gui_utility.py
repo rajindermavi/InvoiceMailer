@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import gui.utility as gui_util
+import src.gui.utility as gui_util
 
 
 class DummySecureConfig:

@@ -4,7 +4,7 @@ import datetime as dt
 
 import pytest
 
-import backend.db.db as db_module
+import src.backend.db.db as db_module
 
 
 @pytest.fixture

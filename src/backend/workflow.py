@@ -1,15 +1,15 @@
 
 from pathlib import Path
 import re
-from backend.db.db_path import get_db_path
-from backend.db.db import (
+from src.backend.db.db_path import get_db_path
+from src.backend.db.db import (
     get_client,
     get_invoices,
     get_client_email,
     get_soa_by_head_office
 )
-from backend.utility.packaging import collect_files_to_zip
-from backend.utility.email import ClientBatch, SMTPConfig, send_all_emails
+from src.backend.utility.packaging import collect_files_to_zip
+from src.backend.utility.send import ClientBatch, SMTPConfig, send_all_emails
 
 
 
@@ -104,12 +104,9 @@ def prep_and_send_emails(
     email_shipment,
     period_str: str,
     dry_run: bool = False,
-    token_provider=None,
-    secure_config=None,
+    show_message=None,
+    passphrase=None,
 ):
-    smtp_username = smtp_config.get('username', "")
-    smtp_password = smtp_config.get('password', "")
-
     client_batches = [ClientBatch(
         zip_path=Path(es.get("zip_path")),
         email_list=es.get("email_list"),
@@ -119,29 +116,26 @@ def prep_and_send_emails(
     smtp_cfg = SMTPConfig(
         host=smtp_config['host'],
         port=smtp_config['port'],
-        username=smtp_username,
-        password=smtp_password,
+        username=smtp_config.get('username', ""),
+        password=smtp_config.get('password', ""),
         use_tls=smtp_config.get('use_tls', True),
         from_addr=smtp_config['from_addr'],
     )
-
-    email_template_kwargs = {
-        'subject_template': email_setup.get('subject_template',''),
-        'body_template': email_setup.get('body_template',''),
-        'sender_name': email_setup.get('sender_name',''),
-        'period': period_str,
-        'reporter_emails': email_setup.get('reporter_emails',[]),
-    }
 
     email_report = send_all_emails(
         client_batches,
         email_auth_method,
         smtp_cfg,
-        ms_auth_config,
+        ms_email_address=ms_auth_config.get('ms_email_address', "") if ms_auth_config else "",
+        ms_authority=ms_auth_config.get('ms_authority', "organizations") if ms_auth_config else "organizations",
         dry_run=dry_run,
-        **email_template_kwargs,
-        token_provider=token_provider,
-        secure_config=secure_config,
+        subject_template=email_setup.get('subject_template', ''),
+        body_template=email_setup.get('body_template', ''),
+        sender_name=email_setup.get('sender_name', ''),
+        period=period_str,
+        reporter_emails=email_setup.get('reporter_emails', []),
+        show_message=show_message,
+        passphrase=passphrase,
     )
     if email_report is None and dry_run:
         email_report = "Dry run complete; emails were prepared but not sent."

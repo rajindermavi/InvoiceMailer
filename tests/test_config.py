@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import backend.config as config
+import src.backend.config as config
 
 
 def test_get_storage_dir_uses_cwd_in_development(monkeypatch, tmp_path):
