@@ -29,6 +29,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "smtp_port": "587",
     "ms_email_address":"",
     "ms_authority":"organizations",
+    "ms_client_id": "",
     "smtp_username": "",
     "smtp_password": "",
     "smtp_from": "",

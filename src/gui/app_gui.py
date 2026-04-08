@@ -116,6 +116,7 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
         ms_auth_config = {
             "ms_email_address": settings.get("ms_email_address"),
             "ms_authority": settings.get("ms_authority", "organizations"),
+            "ms_client_id": settings.get("ms_client_id", ""),
         }
         return {
             "invoice_folder": Path(required_paths["invoice_folder"]),

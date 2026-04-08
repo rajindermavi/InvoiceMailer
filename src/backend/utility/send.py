@@ -20,9 +20,6 @@ DEFAULT_BODY_TEMPLATE = (
     "Your Company"
 )
 
-# Registered Azure public-client app ID.
-CLIENT_ID = "7a55d55b-0653-4ae7-9d2b-f63929063499"
-
 
 @dataclass
 class ClientBatch:
@@ -125,6 +122,7 @@ def send_all_emails(
     smtp_conf: SMTPConfig,
     ms_email_address: str = "",
     ms_authority: str = "organizations",
+    ms_client_id: str = "",
     dry_run: bool = False,
     subject_template: str = DEFAULT_SUBJECT_TEMPLATE,
     body_template: str = DEFAULT_BODY_TEMPLATE,
@@ -179,6 +177,7 @@ def send_all_emails(
             batches,
             ms_email_address=ms_email_address,
             ms_authority=ms_authority,
+            ms_client_id=ms_client_id,
             subject_template=subject_template,
             body_template=body_template,
             sender_name=sender_name,
@@ -212,6 +211,7 @@ def _send_via_graph(
     *,
     ms_email_address: str,
     ms_authority: str,
+    ms_client_id: str,
     subject_template: str,
     body_template: str,
     sender_name: str,
@@ -227,7 +227,7 @@ def _send_via_graph(
         backend="ms_graph",
         msal_config={
             "email_address": ms_email_address,
-            "client_id": CLIENT_ID,
+            "client_id": ms_client_id,
             "authority": ms_authority,
         },
         passphrase=passphrase,

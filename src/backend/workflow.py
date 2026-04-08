@@ -128,6 +128,7 @@ def prep_and_send_emails(
         smtp_cfg,
         ms_email_address=ms_auth_config.get('ms_email_address', "") if ms_auth_config else "",
         ms_authority=ms_auth_config.get('ms_authority', "organizations") if ms_auth_config else "organizations",
+        ms_client_id=ms_auth_config.get('ms_client_id', "") if ms_auth_config else "",
         dry_run=dry_run,
         subject_template=email_setup.get('subject_template', ''),
         body_template=email_setup.get('body_template', ''),

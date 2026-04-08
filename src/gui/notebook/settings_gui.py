@@ -76,6 +76,7 @@ class SettingsTab:
         self.smtp_use_tls_var = tk.BooleanVar(value=True)
         self.ms_email_address_var = tk.StringVar()
         self.ms_authority_var = tk.StringVar(value="organizations")
+        self.ms_client_id_var = tk.StringVar()
 
         self._settings_vars = {
             "invoice_folder": self.invoice_folder_var,
@@ -93,6 +94,7 @@ class SettingsTab:
             "smtp_use_tls": self.smtp_use_tls_var,
             "ms_email_address": self.ms_email_address_var,
             "ms_authority": self.ms_authority_var,
+            "ms_client_id": self.ms_client_id_var,
         }
         apply_settings_to_vars(self._settings_vars, self.settings)
         self.ms_authority_var.trace_add("write", self._handle_ms_authority_change)
@@ -104,7 +106,7 @@ class SettingsTab:
         self.ms_auth_frame = ttk.LabelFrame(self.auth_content, text="MS Auth")
         ttk.Label(self.ms_auth_frame, text="Account Type:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
         authority_frame = ttk.Frame(self.ms_auth_frame)
-        authority_frame.grid(row=1, column=1, padx=5, pady=2, sticky="w")
+        authority_frame.grid(row=2, column=1, padx=5, pady=2, sticky="w")
         ttk.Radiobutton(
             authority_frame,
             text="Work/School (organizations)",
@@ -121,6 +123,8 @@ class SettingsTab:
         ).pack(side="left")
         ttk.Label(self.ms_auth_frame, text="MS Email Address:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
         ttk.Entry(self.ms_auth_frame, textvariable=self.ms_email_address_var, width=40).grid(row=1, column=1, padx=5, pady=2, sticky="w")
+        ttk.Label(self.ms_auth_frame, text="Azure App (Client) ID:").grid(row=3, column=0, sticky="w", padx=5, pady=2)
+        ttk.Entry(self.ms_auth_frame, textvariable=self.ms_client_id_var, width=40).grid(row=3, column=1, padx=5, pady=2, sticky="w")
 
         ttk.Label(self.smtp_frame, text="Host:").grid(row=0, column=0, sticky="w")
         ttk.Entry(self.smtp_frame, textvariable=self.smtp_host_var, width=40).grid(row=0, column=1, padx=5, sticky="w")
@@ -163,6 +167,7 @@ class SettingsTab:
         self.smtp_tls_label_var = tk.StringVar(value="Use TLS: (not saved)")
         self.ms_email_address_label_var = tk.StringVar(value="MS Email Address: (not saved)")
         self.ms_authority_label_var = tk.StringVar(value="MS Authority: (not saved)")
+        self.ms_client_id_label_var = tk.StringVar(value="Azure Client ID: (not saved)")
 
         cfg_summary = ttk.Frame(current_frame)
         cfg_summary.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
@@ -187,6 +192,7 @@ class SettingsTab:
         self.ms_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         ttk.Label(self.ms_summary, textvariable=self.ms_email_address_label_var).grid(row=0, column=0, sticky="w", pady=2)
         ttk.Label(self.ms_summary, textvariable=self.ms_authority_label_var).grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Label(self.ms_summary, textvariable=self.ms_client_id_label_var).grid(row=2, column=0, sticky="w", pady=2)
 
         self.update_current_settings_display()
 
@@ -250,6 +256,7 @@ class SettingsTab:
         self.smtp_tls_label_var.set(f"Use TLS: {'Yes' if self.settings['smtp_use_tls'] else 'No'}")
         self.ms_email_address_label_var.set(f"MS Email Address: {self.settings.get('ms_email_address') or '(empty)'}")
         self.ms_authority_label_var.set(f"MS Authority: {self.settings.get('ms_authority') or '(empty)'}")
+        self.ms_client_id_label_var.set(f"Azure Client ID: {self.settings.get('ms_client_id') or '(empty)'}")
         self._refresh_current_summary_frames()
 
     def _refresh_current_summary_frames(self):
