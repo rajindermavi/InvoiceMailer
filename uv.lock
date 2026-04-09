@@ -266,7 +266,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=46.0.7" },
     { name = "keyring", specifier = ">=25.7.0" },
     { name = "msal", specifier = ">=1.35.1" },
-    { name = "nicemail", specifier = ">=0.2.1" },
+    { name = "nicemail", specifier = ">=0.2.2" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pymupdf", specifier = ">=1.27.2.2" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
@@ -358,7 +358,7 @@ wheels = [
 
 [[package]]
 name = "nicemail"
-version = "0.2.1"
+version = "0.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
@@ -366,9 +366,9 @@ dependencies = [
     { name = "platformdirs" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/94/2c/b7b712d64bf03b28900a6cf1823253e0468b9175a2b16e7e380248fe6327/nicemail-0.2.1.tar.gz", hash = "sha256:fe9f4bfc4ea28dde155ebe571aaeb68a9c6b3c58f8a29f04e997bb914f331a19", size = 28223, upload-time = "2026-03-11T08:47:22.672Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/b7/8efde027c5a1ae84bff211f14dcf3985eea1b34257451156c63f412e3b50/nicemail-0.2.2.tar.gz", hash = "sha256:fa59cba6b6007a3bfa548b76369e7cbd37fd383c5c1a3363a446554a725d87b1", size = 28525, upload-time = "2026-04-09T22:41:06.437Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c9/6a/34919bf5961e953ad728a9b911d7e469b2df199cbb35471b08f90cf183b1/nicemail-0.2.1-py3-none-any.whl", hash = "sha256:2bcb7c6313ee892353808600fdf68196d5dcd3a6319c15c751e209a402b19493", size = 33030, upload-time = "2026-03-11T08:47:21.393Z" },
+    { url = "https://files.pythonhosted.org/packages/52/be/8b84ce476aae7bd03ee5f6bfea9dbef296c69d281a6eb01b66c5b58aa209/nicemail-0.2.2-py3-none-any.whl", hash = "sha256:9054ab39697d09cbbc58ca1d59e57c15863e96fd16df8e31b18956f98f7f2582", size = 33438, upload-time = "2026-04-09T22:41:05.183Z" },
 ]
 
 [[package]]
