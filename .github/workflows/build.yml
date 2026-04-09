@@ -46,7 +46,11 @@ jobs:
         run: |
           $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
           $today = Get-Date -Format "yyyy.MM.dd"
-          pyinstaller --onefile --noconsole --name "InvoiceMailer.v$version.$today" app.py
+          pyinstaller --onefile --noconsole `
+            --hidden-import win32crypt `
+            --hidden-import keyring.backends.Windows `
+            --hidden-import keyring.backends.fail `
+            --name "InvoiceMailer.v$version.$today" app.py
 
       # Upload artifact
       - name: Upload artifact

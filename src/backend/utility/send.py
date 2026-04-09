@@ -5,12 +5,15 @@ SMTP path:     smtplib with optional STARTTLS and login.
 """
 from __future__ import annotations
 
+import logging
 import smtplib
 from collections.abc import Callable
 from dataclasses import dataclass
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, List, Optional
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SUBJECT_TEMPLATE = "Invoices for {head_office_name}"
 DEFAULT_BODY_TEMPLATE = (
@@ -65,6 +68,7 @@ def _render_templates(
     try:
         year, month = str(period).split("-", 1)
     except Exception:
+        logger.warning("Period %r is not in YYYY-MM format; {month}/{year} will be blank in templates", period)
         month, year = "", ""
 
     if isinstance(body_template, str):
@@ -245,11 +249,18 @@ def _send_via_graph(
         }
         if show_message is not None:
             kwargs["show_message"] = show_message
-        client.send(**kwargs)
-        activity.append(
-            f"Sent via MS Auth to {', '.join(batch.email_list)} with attachment {batch.zip_path}\n"
-            f"Subject: {subject}\nBody:\n{body}"
-        )
+        try:
+            client.send(**kwargs)
+            activity.append(
+                f"Sent via MS Auth to {', '.join(batch.email_list)} with attachment {batch.zip_path}\n"
+                f"Subject: {subject}\nBody:\n{body}"
+            )
+        except Exception as exc:
+            logger.error("Failed to send to %s: %s", batch.email_list, exc)
+            activity.append(
+                f"FAILED to send to {', '.join(batch.email_list)} with attachment {batch.zip_path}\n"
+                f"Error: {exc}"
+            )
 
     if reporter_emails and activity:
         log_text = "\n".join(activity)
@@ -295,15 +306,22 @@ def _send_via_smtp(
             server.login(smtp_conf.username, smtp_conf.password)
 
         for batch in batches:
-            msg = build_email(
-                batch, smtp_conf.from_addr, subject_template, body_template, sender_name, period
-            )
-            server.send_message(msg)
-            subject, body = _render_templates(batch, subject_template, body_template, sender_name, period)
-            activity.append(
-                f"Sent to {', '.join(batch.email_list)} with attachment {batch.zip_path}\n"
-                f"Subject: {subject}\nBody:\n{body}"
-            )
+            try:
+                msg = build_email(
+                    batch, smtp_conf.from_addr, subject_template, body_template, sender_name, period
+                )
+                server.send_message(msg)
+                subject, body = _render_templates(batch, subject_template, body_template, sender_name, period)
+                activity.append(
+                    f"Sent to {', '.join(batch.email_list)} with attachment {batch.zip_path}\n"
+                    f"Subject: {subject}\nBody:\n{body}"
+                )
+            except Exception as exc:
+                logger.error("Failed to send to %s: %s", batch.email_list, exc)
+                activity.append(
+                    f"FAILED to send to {', '.join(batch.email_list)} with attachment {batch.zip_path}\n"
+                    f"Error: {exc}"
+                )
 
         if reporter_emails and activity:
             log_text = "\n".join(activity)

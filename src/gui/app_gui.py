@@ -12,6 +12,15 @@ from src.gui.notebook.zip_gui import ZipTab
 from src.gui.utility import load_settings, persist_settings, settings_from_vars, reset_month_and_year
 
 
+def _parse_smtp_port(value) -> int | None:
+    if not value:
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        raise ValueError(f"SMTP port must be a number, got: {value!r}")
+
+
 class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
 
     def __init__(self, root, secure_config: SecureConfig | None = None):
@@ -129,7 +138,7 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
             "email_auth_method": settings.get("email_auth_method"),
             "smtp_config": {
                 "host": settings.get("smtp_host"),
-                "port": int(settings["smtp_port"]) if settings.get("smtp_port") else None,
+                "port": _parse_smtp_port(settings.get("smtp_port")),
                 "username": settings.get("smtp_username"),
                 "password": settings.get("smtp_password"),
                 "from_addr": settings.get("smtp_from"),

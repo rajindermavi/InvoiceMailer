@@ -1,7 +1,10 @@
+import logging
 import re
 
 from pathlib import Path
 from typing import List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from dateutil import parser as dateparser
 import fitz  # PyMuPDF
@@ -18,7 +21,8 @@ try:
     from PIL import Image
 
     OCR_LIB_AVAILABLE = True
-except Exception:
+except ImportError as _ocr_import_err:
+    logger.warning("OCR unavailable (%s); falling back to text-only extraction", _ocr_import_err)
     OCR_LIB_AVAILABLE = False
 
 PdfBox = Tuple[float, float, float, float]
@@ -62,8 +66,8 @@ def ocr_text_from_region(page: fitz.Page, rect: fitz.Rect, scale: float = 2.0) -
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
     try:
         return pytesseract.image_to_string(img)
-    except (pytesseract.TesseractNotFoundError, OSError):
-        # Tesseract binary not installed or not on PATH; fallback to empty text
+    except (pytesseract.TesseractNotFoundError, OSError) as exc:
+        logger.warning("Tesseract OCR failed: %s", exc)
         return ""
     finally:
         img.close()

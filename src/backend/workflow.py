@@ -34,6 +34,8 @@ def scan_for_invoices(
         kwargs = {agg: client}
 
         client_rows = get_client(**kwargs)
+        if not client_rows:
+            raise ValueError(f"Client not found in database: {client!r}")
         head_office = client_rows[0]['head_office']
         soa_rows = get_soa_by_head_office(head_office=head_office)
         soa_path = soa_rows[0]["soa_file_path"] if soa_rows else None
@@ -138,6 +140,4 @@ def prep_and_send_emails(
         show_message=show_message,
         passphrase=passphrase,
     )
-    if email_report is None and dry_run:
-        email_report = "Dry run complete; emails were prepared but not sent."
     return email_report

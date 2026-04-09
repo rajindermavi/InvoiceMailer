@@ -125,7 +125,8 @@ class SecureConfig:
             return False
         try:
             import win32crypt  # type: ignore
-        except Exception:
+        except Exception as exc:
+            self._log(f"win32crypt unavailable; DPAPI disabled ({exc}).")
             return False
 
         self._win32crypt = win32crypt
@@ -221,7 +222,8 @@ class SecureConfig:
             return None
         try:
             return self._win32crypt.CryptUnprotectData(data, None, None, None, 0)[1]
-        except Exception:
+        except Exception as exc:
+            self._log(f"DPAPI decryption failed; disabling DPAPI ({exc}).")
             self._use_dpapi = False
             return None
 
@@ -230,7 +232,8 @@ class SecureConfig:
             return None
         try:
             encrypted = self._win32crypt.CryptProtectData(data, None, None, None, None, 0)[1]
-        except Exception:
+        except Exception as exc:
+            self._log(f"DPAPI encryption failed; disabling DPAPI ({exc}).")
             self._use_dpapi = False
             return None
 
@@ -257,14 +260,15 @@ class SecureConfig:
                 self._log(f"Loaded config via DPAPI from: {cfg_file}")
                 try:
                     return json.loads(decrypted.decode("utf-8"))
-                except Exception:
+                except Exception as exc:
+                    self._log(f"Config JSON parse failed after DPAPI decrypt; returning empty config ({exc}).")
                     return {}
 
         fernet = self._ensure_fernet()
         try:
             decrypted = fernet.decrypt(encrypted)
-        except Exception:
-            # If corrupt, return empty (or raise)
+        except Exception as exc:
+            self._log(f"Fernet decryption failed; config may be corrupt or key has changed ({exc}).")
             return {}
 
         self._log(f"Loaded config via Fernet from: {cfg_file}")

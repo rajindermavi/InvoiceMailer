@@ -400,7 +400,9 @@ def get_client_email(
     with get_conn() as conn:
         cur = conn.execute(query, params)
         row = cur.fetchone()
-    
+
+    if row is None:
+        return []
     return [email for email in row if email]
 
 def get_soa_by_head_office(

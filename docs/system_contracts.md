@@ -353,12 +353,3 @@ Each tab is a mixin class. All tabs follow the same contract:
 
 ---
 
-## Summary of boundary violations to resolve
-
-| # | Violation | Fix |
-|---|---|---|
-| 1 | `src/backend/utility/email.py` imports `send_email_via_graph` from `src/gui/msal_device_code.py` | Move Graph/SMTP send helpers and `MSalDeviceCodeTokenProvider` to `src/backend/delivery/`; keep only the Tkinter popup in `src/gui/` |
-| 2 | `src/gui/msal_device_code.py` contains `smtplib`, `msal`, `requests` logic mixed with `tkinter` | Split into `src/backend/delivery/ms_auth.py` (auth + send) and a thin GUI popup in `src/gui/` |
-
-Once resolved, the only direction of cross-layer imports is downward:
-GUI → Workflow → DB / Delivery / Utilities → Config.
