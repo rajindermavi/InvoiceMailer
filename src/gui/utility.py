@@ -5,12 +5,12 @@ from typing import Any, Dict, Mapping
 
 from src.backend.config import SecureConfig
 
-DEFAULT_SUBJECT_TEMPLATE = "Invoice Statement for {month}-{year}"
+DEFAULT_SUBJECT_TEMPLATE = "Invoice Statement for ${month}-${year}"
 DEFAULT_BODY_TEMPLATE = (
-    "Dear {contact_name},\n\n"
-    "Please find attached the invoice statement for {month}-{year}.\n\n"
+    "Dear ${contact_name},\n\n"
+    "Please find attached the invoice statement for ${month}-${year}.\n\n"
     "Best regards,\n"
-    "{sender_name}"
+    "${sender_name}"
 )
 DEFAULT_SENDER_NAME = "Billing Department"
 REPORTER_EMAILS_PLACEHOLDER = []

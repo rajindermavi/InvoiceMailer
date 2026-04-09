@@ -96,6 +96,7 @@ class SendTab:
                 self.email_shipment = prep_invoice_zips(
                     invoices_to_ship,
                     workflow_kwargs.get("zip_output_dir"),
+                    agg=workflow_kwargs["agg"],
                 )
 
             dry_run = workflow_kwargs.get("dry_run")

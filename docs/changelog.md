@@ -58,6 +58,20 @@ than a generic `ValueError: invalid literal for int()`.
 L2 (`collect_files_to_zip` unguarded) was assessed and closed — missing files are
 already caught at the scan step with a user-facing popup.
 
+### Code audit fixes (F-01, F-02, F-03, F-04, F-05)
+
+Addressed four findings from `docs/code_audit.md`:
+
+- **F-01** (`db/db.py` · `get_client_list`): Replaced two consecutive `if` branches with `if / elif / else`. Any `client_type` that is not `'head_office'` or `'customer_number'` now raises `ValueError` with a descriptive message instead of crashing with `UnboundLocalError`. Also removed the redundant `WHERE 1=1` clause and the no-op self-reassignments.
+
+- **F-02** (`db/db.py` · `add_or_update_client`): Added an early-return guard before the INSERT. If the email list is empty after filtering, a `warnings.warn` is issued naming the client and the function returns without touching the DB, preventing a `sqlite3.IntegrityError` from the `emailforinvoice1 NOT NULL` constraint.
+
+- **F-03** (`workflow.py` · `prep_invoice_zips`): Added `agg` parameter (default `"head_office"`). Renamed the loop variable from `head_office` to `client_key` throughout the function. Email lookup changed from `get_client_email(head_office=head_office)` to `get_client_email(**{agg: client_key})`, fixing silent empty-email-list when `agg='customer_number'`. Both GUI call sites (`send_gui.py`, `zip_gui.py`) updated to pass `agg=workflow_kwargs["agg"]`.
+
+- **F-04** (`utility/send.py` · reporter summary): Wrapped the reporter summary `client.send()` call in `_send_via_graph` and the `server.send_message()` call in `_send_via_smtp` in `try/except`. A reporter failure now logs the error and returns normally, so the activity log is always returned to the caller.
+
+- **F-05** (`utility/send.py` · template rendering): Replaced `str.format(**fmt)` with `string.Template.safe_substitute()`. Unknown placeholders are now left as-is instead of raising `KeyError`, and attribute-access abuse via `{obj.attr}` syntax is no longer possible. A `_BRACE_VAR` regex converts legacy `{key}` syntax to `${key}` at render time so existing stored configs continue to work without migration. Default templates in `send.py` and `gui/utility.py` updated to `${key}` syntax.
+
 ### Dead code removal (L1)
 
 `workflow.py` had an unreachable `if email_report is None` guard — `send_all_emails` is typed and always returns a `str`. Removed the dead branch.

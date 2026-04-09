@@ -6,7 +6,9 @@ SMTP path:     smtplib with optional STARTTLS and login.
 from __future__ import annotations
 
 import logging
+import re
 import smtplib
+import string
 from collections.abc import Callable
 from dataclasses import dataclass
 from email.message import EmailMessage
@@ -15,13 +17,17 @@ from typing import Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SUBJECT_TEMPLATE = "Invoices for {head_office_name}"
+DEFAULT_SUBJECT_TEMPLATE = "Invoices for ${head_office_name}"
 DEFAULT_BODY_TEMPLATE = (
-    "Dear {head_office_name},\n\n"
+    "Dear ${head_office_name},\n\n"
     "Please find attached the invoices for your review.\n\n"
     "Best regards,\n"
     "Your Company"
 )
+
+# Matches legacy {key} placeholders so stored configs using the old str.format
+# syntax are transparently converted to ${key} for string.Template.
+_BRACE_VAR = re.compile(r'\{(\w+)\}')
 
 
 @dataclass
@@ -85,7 +91,13 @@ def _render_templates(
         "month": month,
         "year": year,
     }
-    return subject_template.format(**fmt), body_template.format(**fmt)
+
+    def _render(template: str) -> str:
+        # Convert legacy {key} → ${key} so stored configs keep working.
+        normalised = _BRACE_VAR.sub(r'${\1}', template)
+        return string.Template(normalised).safe_substitute(fmt)
+
+    return _render(subject_template), _render(body_template)
 
 
 def build_email(
@@ -272,7 +284,10 @@ def _send_via_graph(
         }
         if show_message is not None:
             report_kwargs["show_message"] = show_message
-        client.send(**report_kwargs)
+        try:
+            client.send(**report_kwargs)
+        except Exception as exc:
+            logger.error("Failed to send reporter summary email: %s", exc)
 
 
 def _send_via_smtp(
@@ -330,4 +345,7 @@ def _send_via_smtp(
             report["To"] = ", ".join(reporter_emails)
             report["Subject"] = f"Invoice mailer report for {period}"
             report.set_content(log_text)
-            server.send_message(report)
+            try:
+                server.send_message(report)
+            except Exception as exc:
+                logger.error("Failed to send reporter summary email: %s", exc)

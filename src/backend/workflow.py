@@ -61,21 +61,22 @@ def scan_for_invoices(
 def prep_invoice_zips(
     invoices_to_ship: dict[str, list[dict[str, str | None]]],
     zip_output_dir: Path | str | None = None,
+    agg: str = "head_office",
 ):
     email_shipment = []
     base_zip_dir = Path(zip_output_dir) if zip_output_dir else get_db_path().parent
     base_zip_dir.mkdir(parents=True, exist_ok=True)
 
-    for head_office, invoices in invoices_to_ship.items():
+    for client_key, invoices in invoices_to_ship.items():
         if not invoices:
             continue
 
         raw_head_office_name = invoices[0].get("head_office_name")
-        head_office_name = raw_head_office_name or head_office or "client"
+        head_office_name = raw_head_office_name or client_key or "client"
         # Sanitize for Windows-safe usage and include the aggregate key to reduce collisions.
         head_office_name = re.sub(r'[<>:"/\\\\|?*]+', "_", head_office_name).strip().strip(".")
-        if head_office and head_office not in head_office_name:
-            head_office_name = f"{head_office_name}_{head_office}"
+        if client_key and client_key not in head_office_name:
+            head_office_name = f"{head_office_name}_{client_key}"
         soa_path = invoices[0].get("soa_path")
 
         files_to_zip_paths = [inv["invoice_path"] for inv in invoices if inv.get("invoice_path")]
@@ -85,9 +86,9 @@ def prep_invoice_zips(
         if not files_to_zip_paths:
             continue
 
-        zip_path = collect_files_to_zip(files_to_zip_paths, base_zip_dir / f"{head_office}.zip")
+        zip_path = collect_files_to_zip(files_to_zip_paths, base_zip_dir / f"{client_key}.zip")
 
-        email_list = get_client_email(head_office=head_office)
+        email_list = get_client_email(**{agg: client_key})
         email_shipment.append(
             {
                 "zip_path": zip_path,

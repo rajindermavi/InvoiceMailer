@@ -152,6 +152,12 @@ def add_or_update_client(
     any remaining slots are set to NULL.
     """
     email_list = [email for email in emails if email][:5]
+    if not email_list:
+        warnings.warn(
+            f"Client {customer_number!r} (head office {head_office!r}) has no email addresses; skipping.",
+            stacklevel=2,
+        )
+        return
     if len(email_list) < 5:
         email_list.extend([None] * (5 - len(email_list)))
 
@@ -290,16 +296,16 @@ def mark_invoice_sent(
 # SQL READ
 
 def get_client_list(
-    client_type: Optional[str] = None 
+    client_type: Optional[str] = None
 ) -> list[str]:
-    
     if client_type == 'head_office':
-        query = "SELECT distinct head_office FROM clients WHERE 1=1"
-        client_type = 'head_office'
-    
-    if client_type == 'customer_number':
-        query = "SELECT distinct customer_number FROM clients WHERE 1=1"
-        client_type = 'customer_number'
+        query = "SELECT DISTINCT head_office FROM clients"
+    elif client_type == 'customer_number':
+        query = "SELECT DISTINCT customer_number FROM clients"
+    else:
+        raise ValueError(
+            f"client_type must be 'head_office' or 'customer_number', got {client_type!r}"
+        )
 
     with get_conn() as conn:
         cur = conn.execute(query)

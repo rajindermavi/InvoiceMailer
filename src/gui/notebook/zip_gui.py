@@ -62,7 +62,7 @@ class ZipTab:
                 period_month,
                 workflow_kwargs["agg"],
             )
-            email_shipment = prep_invoice_zips(invoices_to_ship, workflow_kwargs.get("zip_output_dir"))
+            email_shipment = prep_invoice_zips(invoices_to_ship, workflow_kwargs.get("zip_output_dir"), agg=workflow_kwargs["agg"])
             rows = [
                 (
                     shipment.get("head_office_name") or Path(shipment["zip_path"]).stem,
