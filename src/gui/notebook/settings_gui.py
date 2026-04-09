@@ -55,25 +55,8 @@ class SettingsTab:
         self.mode_var = tk.StringVar(value="Active")
         ttk.Combobox(frame, textvariable=self.mode_var, values=["Active", "Test"], width=10).grid(row=4, column=1, sticky="w")
 
-        # Email authentication method toggle
-        self.email_auth_method_var = tk.StringVar(value="smtp")
         self._auth_frame_pack_opts = {"fill": "x", "padx": 5, "pady": (0, 10)}
 
-        auth_frame = ttk.LabelFrame(container, text="Authentication")
-        auth_frame.pack(**self._auth_frame_pack_opts)
-        ttk.Radiobutton(auth_frame, text="SMTP", variable=self.email_auth_method_var, value="smtp", command=self._handle_email_auth_toggle).grid(
-            row=0, column=0, padx=5, pady=2, sticky="w"
-        )
-        ttk.Radiobutton(auth_frame, text="MS Auth", variable=self.email_auth_method_var, value="ms_auth", command=self._handle_email_auth_toggle).grid(
-            row=0, column=1, padx=5, pady=2, sticky="w"
-        )
-
-        self.smtp_host_var = tk.StringVar(value="smtp.gmail.com")
-        self.smtp_port_var = tk.StringVar(value="587")
-        self.smtp_username_var = tk.StringVar()
-        self.smtp_password_var = tk.StringVar()
-        self.smtp_from_var = tk.StringVar()
-        self.smtp_use_tls_var = tk.BooleanVar(value=True)
         self.ms_email_address_var = tk.StringVar()
         self.ms_authority_var = tk.StringVar(value="organizations")
         self.ms_client_id_var = tk.StringVar()
@@ -85,13 +68,6 @@ class SettingsTab:
             "output_folder": self.output_folder_var,
             "aggregate_by": self.aggregate_by_var,
             "mode": self.mode_var,
-            "email_auth_method": self.email_auth_method_var,
-            "smtp_host": self.smtp_host_var,
-            "smtp_port": self.smtp_port_var,
-            "smtp_username": self.smtp_username_var,
-            "smtp_password": self.smtp_password_var,
-            "smtp_from": self.smtp_from_var,
-            "smtp_use_tls": self.smtp_use_tls_var,
             "ms_email_address": self.ms_email_address_var,
             "ms_authority": self.ms_authority_var,
             "ms_client_id": self.ms_client_id_var,
@@ -102,7 +78,6 @@ class SettingsTab:
         self.auth_content = ttk.Frame(container)
         self.auth_content.pack(**self._auth_frame_pack_opts)
 
-        self.smtp_frame = ttk.LabelFrame(self.auth_content, text="SMTP")
         self.ms_auth_frame = ttk.LabelFrame(self.auth_content, text="MS Auth")
         ttk.Label(self.ms_auth_frame, text="Account Type:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
         authority_frame = ttk.Frame(self.ms_auth_frame)
@@ -126,23 +101,6 @@ class SettingsTab:
         ttk.Label(self.ms_auth_frame, text="Azure App (Client) ID:").grid(row=3, column=0, sticky="w", padx=5, pady=2)
         ttk.Entry(self.ms_auth_frame, textvariable=self.ms_client_id_var, width=40).grid(row=3, column=1, padx=5, pady=2, sticky="w")
 
-        ttk.Label(self.smtp_frame, text="Host:").grid(row=0, column=0, sticky="w")
-        ttk.Entry(self.smtp_frame, textvariable=self.smtp_host_var, width=40).grid(row=0, column=1, padx=5, sticky="w")
-
-        ttk.Label(self.smtp_frame, text="Port:").grid(row=1, column=0, sticky="w")
-        ttk.Entry(self.smtp_frame, textvariable=self.smtp_port_var, width=10).grid(row=1, column=1, padx=5, sticky="w")
-
-        ttk.Label(self.smtp_frame, text="Username:").grid(row=2, column=0, sticky="w")
-        ttk.Entry(self.smtp_frame, textvariable=self.smtp_username_var, width=40).grid(row=2, column=1, padx=5, sticky="w")
-
-        ttk.Label(self.smtp_frame, text="Password:").grid(row=3, column=0, sticky="w")
-        ttk.Entry(self.smtp_frame, textvariable=self.smtp_password_var, show="*", width=40).grid(row=3, column=1, padx=5, sticky="w")
-
-        ttk.Label(self.smtp_frame, text="From Address:").grid(row=4, column=0, sticky="w")
-        ttk.Entry(self.smtp_frame, textvariable=self.smtp_from_var, width=40).grid(row=4, column=1, padx=5, sticky="w")
-
-        ttk.Checkbutton(self.smtp_frame, text="Use TLS", variable=self.smtp_use_tls_var).grid(row=5, column=0, columnspan=2, sticky="w")
-
         self._refresh_auth_frames()
 
         ttk.Button(container, text="Save Settings", command=self.save_settings).pack(fill="x", padx=5, pady=(0, 10))
@@ -158,13 +116,6 @@ class SettingsTab:
         self.soa_folder_label_var = tk.StringVar(value="SOA Folder: (not saved)")
         self.aggregate_by_label_var = tk.StringVar(value="Aggregate By: (not saved)")
         self.mode_label_var = tk.StringVar(value="Mode: (not saved)")
-        self.auth_method_label_var = tk.StringVar(value="Email Auth: (not saved)")
-        self.smtp_host_label_var = tk.StringVar(value="SMTP Host: (not saved)")
-        self.smtp_port_label_var = tk.StringVar(value="SMTP Port: (not saved)")
-        self.smtp_username_label_var = tk.StringVar(value="SMTP Username: (not saved)")
-        self.smtp_password_label_var = tk.StringVar(value="SMTP Password: (not saved)")
-        self.smtp_from_label_var = tk.StringVar(value="From Address: (not saved)")
-        self.smtp_tls_label_var = tk.StringVar(value="Use TLS: (not saved)")
         self.ms_email_address_label_var = tk.StringVar(value="MS Email Address: (not saved)")
         self.ms_authority_label_var = tk.StringVar(value="MS Authority: (not saved)")
         self.ms_client_id_label_var = tk.StringVar(value="Azure Client ID: (not saved)")
@@ -177,16 +128,6 @@ class SettingsTab:
         ttk.Label(cfg_summary, textvariable=self.output_folder_label_var).grid(row=3, column=0, sticky="w", pady=2)
         ttk.Label(cfg_summary, textvariable=self.aggregate_by_label_var).grid(row=4, column=0, sticky="w", pady=2)
         ttk.Label(cfg_summary, textvariable=self.mode_label_var).grid(row=5, column=0, sticky="w", pady=2)
-        ttk.Label(cfg_summary, textvariable=self.auth_method_label_var).grid(row=6, column=0, sticky="w", pady=2)
-
-        self.smtp_summary = ttk.Frame(current_frame)
-        self.smtp_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
-        ttk.Label(self.smtp_summary, textvariable=self.smtp_host_label_var).grid(row=0, column=0, sticky="w", pady=2)
-        ttk.Label(self.smtp_summary, textvariable=self.smtp_port_label_var).grid(row=1, column=0, sticky="w", pady=2)
-        ttk.Label(self.smtp_summary, textvariable=self.smtp_username_label_var).grid(row=2, column=0, sticky="w", pady=2)
-        ttk.Label(self.smtp_summary, textvariable=self.smtp_password_label_var).grid(row=3, column=0, sticky="w", pady=2)
-        ttk.Label(self.smtp_summary, textvariable=self.smtp_from_label_var).grid(row=4, column=0, sticky="w", pady=2)
-        #ttk.Label(self.smtp_summary, textvariable=self.smtp_tls_label_var).grid(row=5, column=0, sticky="w", pady=2)
 
         self.ms_summary = ttk.Frame(current_frame)
         self.ms_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
@@ -197,15 +138,8 @@ class SettingsTab:
         self.update_current_settings_display()
 
     def _refresh_auth_frames(self, *_):
-        # Toggle between SMTP and MS Auth frames based on the selected method.
-        selected = self.email_auth_method_var.get()
-        self.smtp_frame.pack_forget()
-        self.ms_auth_frame.pack_forget()
-        if selected == "ms_auth":
-            self.ms_auth_frame.pack(fill="x")
-        else:
-            self.smtp_frame.pack(fill="x")
-        if hasattr(self, "smtp_summary") and hasattr(self, "ms_summary"):
+        self.ms_auth_frame.pack(fill="x")
+        if hasattr(self, "ms_summary"):
             self._refresh_current_summary_frames()
 
     def pick_invoice_folder(self):
@@ -243,36 +177,13 @@ class SettingsTab:
         self.client_file_label_var.set(f"Client List File: {self.settings['client_file'] or '(empty)'}")
         self.aggregate_by_label_var.set(f"Aggregate By: {self.settings['aggregate_by'].replace('_',' ').title() or '(empty)'}")
         self.mode_label_var.set(f"Mode: {self.settings['mode'] or '(empty)'}")
-        #auth_method_raw = (self.settings.get('email_auth_method') or 'smtp').lower()
-        #auth_method_label = "MS Auth" if auth_method_raw == "ms_auth" else "SMTP"
-        auth_method_label = self.email_auth_method_var.get()
-        self.auth_method_label_var.set(f"Email Auth: {auth_method_label}")
-        self.smtp_host_label_var.set(f"SMTP Host: {self.settings['smtp_host'] or '(empty)'}")
-        self.smtp_port_label_var.set(f"SMTP Port: {self.settings['smtp_port'] or '(empty)'}")
-        self.smtp_username_label_var.set(f"SMTP Username: {self.settings['smtp_username'] or '(empty)'}")
-        masked_pwd = "*" * len(self.settings['smtp_password']) if self.settings['smtp_password'] else "(empty)"
-        self.smtp_password_label_var.set(f"SMTP Password: {masked_pwd}")
-        self.smtp_from_label_var.set(f"From Address: {self.settings['smtp_from'] or '(empty)'}")
-        self.smtp_tls_label_var.set(f"Use TLS: {'Yes' if self.settings['smtp_use_tls'] else 'No'}")
         self.ms_email_address_label_var.set(f"MS Email Address: {self.settings.get('ms_email_address') or '(empty)'}")
         self.ms_authority_label_var.set(f"MS Authority: {self.settings.get('ms_authority') or '(empty)'}")
         self.ms_client_id_label_var.set(f"Azure Client ID: {self.settings.get('ms_client_id') or '(empty)'}")
         self._refresh_current_summary_frames()
 
     def _refresh_current_summary_frames(self):
-        selected = self.email_auth_method_var.get()
-        self.smtp_summary.grid_remove()
-        self.ms_summary.grid_remove()
-        if selected == "ms_auth":
-            self.ms_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
-        else:
-            self.smtp_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
-
-    def _handle_email_auth_toggle(self, *_):
-        # Keep the backing settings dict in sync with the selected auth method.
-        self.settings["email_auth_method"] = self.email_auth_method_var.get()
-        self._refresh_auth_frames()
-        self.update_current_settings_display()
+        self.ms_summary.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
 
     def _handle_ms_authority_change(self, *_):
         value = (self.ms_authority_var.get() or "organizations").strip() or "organizations"

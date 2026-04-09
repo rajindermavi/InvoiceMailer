@@ -1,17 +1,14 @@
 """Email construction and dispatch for Invoice Mailer.
 
 MS Graph path: nicemail EmailClient handles OAuth token acquisition and sending.
-SMTP path:     smtplib with optional STARTTLS and login.
 """
 from __future__ import annotations
 
 import logging
 import re
-import smtplib
 import string
 from collections.abc import Callable
 from dataclasses import dataclass
-from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -21,8 +18,7 @@ DEFAULT_SUBJECT_TEMPLATE = "Invoices for ${head_office_name}"
 DEFAULT_BODY_TEMPLATE = (
     "Dear ${head_office_name},\n\n"
     "Please find attached the invoices for your review.\n\n"
-    "Best regards,\n"
-    "Your Company"
+    "Best regards\n"
 )
 
 # Matches legacy {key} placeholders so stored configs using the old str.format
@@ -35,16 +31,6 @@ class ClientBatch:
     zip_path: Path
     email_list: List[str]
     head_office_name: str
-
-
-@dataclass
-class SMTPConfig:
-    host: str
-    port: int
-    username: str
-    password: str
-    from_addr: str
-    use_tls: bool = True
 
 
 # --------------------------------------------------------------------------- #
@@ -107,42 +93,12 @@ def _render_templates(
     return _render(subject_template), _render(body_template)
 
 
-def build_email(
-    batch: ClientBatch,
-    from_addr: str,
-    subject_template: str,
-    body_template: str,
-    sender_name: str,
-    period: str,
-) -> EmailMessage:
-    """Build an EmailMessage with the ZIP attached. Used by the SMTP path."""
-    subject, body = _render_templates(batch, subject_template, body_template, sender_name, period)
-
-    msg = EmailMessage()
-    msg["From"] = from_addr
-    msg["To"] = ", ".join(sorted(set(normalize_recipients(batch.email_list))))
-    msg["Subject"] = subject
-    msg.set_content(body)
-
-    with batch.zip_path.open("rb") as f:
-        file_data = f.read()
-    msg.add_attachment(
-        file_data,
-        maintype="application",
-        subtype="zip",
-        filename=batch.zip_path.name,
-    )
-    return msg
-
-
 # --------------------------------------------------------------------------- #
 # Public send entry point                                                      #
 # --------------------------------------------------------------------------- #
 
 def send_all_emails(
     batches: List[ClientBatch],
-    email_auth_method: str,
-    smtp_conf: SMTPConfig,
     ms_email_address: str = "",
     ms_authority: str = "organizations",
     ms_client_id: str = "",
@@ -155,13 +111,11 @@ def send_all_emails(
     show_message: Optional[Callable[[Any], None]] = None,
     passphrase: Optional[str] = None,
 ) -> str:
-    """Send all batches and return an activity log string.
+    """Send all batches via MS Graph and return an activity log string.
 
     Args:
         batches:            One ClientBatch per head-office aggregate group.
-        email_auth_method:  ``"smtp"`` or ``"ms_auth"``.
-        smtp_conf:          SMTP connection parameters (used when auth=smtp).
-        ms_email_address:   Sender address for MS Graph (used when auth=ms_auth).
+        ms_email_address:   Sender address for MS Graph.
         ms_authority:       MSAL authority – ``"organizations"`` or ``"consumers"``.
         dry_run:            When True, build emails but make no network calls.
         subject_template:   Format string; see module-level DEFAULT_SUBJECT_TEMPLATE.
@@ -173,7 +127,6 @@ def send_all_emails(
         passphrase:         nicemail passphrase for its internal credential store.
     """
     reporter_emails = reporter_emails or []
-    use_ms_auth = (email_auth_method or "smtp").lower() == "ms_auth"
 
     def _build_log(entries: list[str], is_dry_run: bool) -> str:
         sep = "\n" + ("-" * 40) + "\n"
@@ -193,34 +146,22 @@ def send_all_emails(
             )
         return _build_log(activity, is_dry_run=True)
 
-    if use_ms_auth:
-        if not ms_email_address:
-            raise ValueError("MS Auth email address is required when email_auth_method is 'ms_auth'.")
-        _send_via_graph(
-            batches,
-            ms_email_address=ms_email_address,
-            ms_authority=ms_authority,
-            ms_client_id=ms_client_id,
-            subject_template=subject_template,
-            body_template=body_template,
-            sender_name=sender_name,
-            period=period,
-            reporter_emails=reporter_emails,
-            show_message=show_message,
-            passphrase=passphrase,
-            activity=activity,
-        )
-    else:
-        _send_via_smtp(
-            batches,
-            smtp_conf=smtp_conf,
-            subject_template=subject_template,
-            body_template=body_template,
-            sender_name=sender_name,
-            period=period,
-            reporter_emails=reporter_emails,
-            activity=activity,
-        )
+    if not ms_email_address:
+        raise ValueError("MS email address is required.")
+    _send_via_graph(
+        batches,
+        ms_email_address=ms_email_address,
+        ms_authority=ms_authority,
+        ms_client_id=ms_client_id,
+        subject_template=subject_template,
+        body_template=body_template,
+        sender_name=sender_name,
+        period=period,
+        reporter_emails=reporter_emails,
+        show_message=show_message,
+        passphrase=passphrase,
+        activity=activity,
+    )
 
     return _build_log(activity, is_dry_run=False)
 
@@ -297,62 +238,3 @@ def _send_via_graph(
             logger.error("Failed to send reporter summary email: %s", exc)
 
 
-def _send_via_smtp(
-    batches: List[ClientBatch],
-    *,
-    smtp_conf: SMTPConfig,
-    subject_template: str,
-    body_template: str,
-    sender_name: str,
-    period: str,
-    reporter_emails: list[str],
-    activity: list[str],
-) -> None:
-    with smtplib.SMTP(smtp_conf.host, smtp_conf.port) as server:
-        server.ehlo_or_helo_if_needed()
-
-        if smtp_conf.use_tls:
-            if server.has_extn("starttls"):
-                server.starttls()
-                server.ehlo()
-            else:
-                raise smtplib.SMTPNotSupportedError(
-                    "SMTP server does not advertise STARTTLS; check host/port or disable use_tls."
-                )
-
-        if smtp_conf.username:
-            if not server.has_extn("auth"):
-                raise smtplib.SMTPNotSupportedError(
-                    "SMTP AUTH not supported by server; enable TLS for providers like Gmail or remove credentials."
-                )
-            server.login(smtp_conf.username, smtp_conf.password)
-
-        for batch in batches:
-            try:
-                msg = build_email(
-                    batch, smtp_conf.from_addr, subject_template, body_template, sender_name, period
-                )
-                server.send_message(msg)
-                subject, body = _render_templates(batch, subject_template, body_template, sender_name, period)
-                activity.append(
-                    f"Sent to {', '.join(batch.email_list)} with attachment {batch.zip_path}\n"
-                    f"Subject: {subject}\nBody:\n{body}"
-                )
-            except Exception as exc:
-                logger.error("Failed to send to %s: %s", batch.email_list, exc)
-                activity.append(
-                    f"FAILED to send to {', '.join(batch.email_list)} with attachment {batch.zip_path}\n"
-                    f"Error: {exc}"
-                )
-
-        if reporter_emails and activity:
-            log_text = "\n".join(activity)
-            report = EmailMessage()
-            report["From"] = smtp_conf.from_addr
-            report["To"] = ", ".join(reporter_emails)
-            report["Subject"] = f"Invoice mailer report for {period}"
-            report.set_content(log_text)
-            try:
-                server.send_message(report)
-            except Exception as exc:
-                logger.error("Failed to send reporter summary email: %s", exc)

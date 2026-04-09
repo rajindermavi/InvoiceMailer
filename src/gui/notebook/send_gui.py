@@ -109,8 +109,6 @@ class SendTab:
                 dry_run = (workflow_kwargs.get("mode") or "").lower() == "test"
 
             email_report = prep_and_send_emails(
-                workflow_kwargs['email_auth_method'],
-                workflow_kwargs["smtp_config"],
                 workflow_kwargs['ms_auth_config'],
                 workflow_kwargs["email_setup"],
                 self.email_shipment,

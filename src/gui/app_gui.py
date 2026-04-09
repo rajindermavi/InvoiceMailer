@@ -12,14 +12,6 @@ from src.gui.notebook.zip_gui import ZipTab
 from src.gui.utility import load_settings, persist_settings, settings_from_vars, reset_month_and_year
 
 
-def _parse_smtp_port(value) -> int | None:
-    if not value:
-        return None
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        raise ValueError(f"SMTP port must be a number, got: {value!r}")
-
 
 class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
 
@@ -137,15 +129,6 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
             "agg": settings.get("aggregate_by", "head_office"),
             "period_month": settings.get("email_month"),
             "period_year": settings.get("email_year"),
-            "email_auth_method": settings.get("email_auth_method"),
-            "smtp_config": {
-                "host": settings.get("smtp_host"),
-                "port": _parse_smtp_port(settings.get("smtp_port")),
-                "username": settings.get("smtp_username"),
-                "password": settings.get("smtp_password"),
-                "from_addr": settings.get("smtp_from"),
-                "use_tls": settings.get("smtp_use_tls", True),
-            },
             "ms_auth_config": ms_auth_config,
             "email_setup": {
                 "subject_template": settings.get("subject_template"),

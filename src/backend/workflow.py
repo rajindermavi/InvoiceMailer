@@ -13,7 +13,7 @@ from src.backend.db.db import (
     get_all_invoices,
 )
 from src.backend.utility.packaging import collect_files_to_zip
-from src.backend.utility.send import ClientBatch, SMTPConfig, send_all_emails
+from src.backend.utility.send import ClientBatch, send_all_emails
 
 
 
@@ -162,8 +162,6 @@ def prep_invoice_zips(
     return email_shipment
 
 def prep_and_send_emails(
-    email_auth_method,
-    smtp_config,
     ms_auth_config,
     email_setup,
     email_shipment,
@@ -178,19 +176,8 @@ def prep_and_send_emails(
         head_office_name=es.get("head_office_name"),
     ) for es in email_shipment]
 
-    smtp_cfg = SMTPConfig(
-        host=smtp_config['host'],
-        port=smtp_config['port'],
-        username=smtp_config.get('username', ""),
-        password=smtp_config.get('password', ""),
-        use_tls=smtp_config.get('use_tls', True),
-        from_addr=smtp_config['from_addr'],
-    )
-
     email_report = send_all_emails(
         client_batches,
-        email_auth_method,
-        smtp_cfg,
         ms_email_address=ms_auth_config.get('ms_email_address', "") if ms_auth_config else "",
         ms_authority=ms_auth_config.get('ms_authority', "organizations") if ms_auth_config else "organizations",
         ms_client_id=ms_auth_config.get('ms_client_id', "") if ms_auth_config else "",
