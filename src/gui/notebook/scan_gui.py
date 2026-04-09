@@ -72,7 +72,7 @@ class ScanTab:
     def _scan_thread(self):
         try:
             workflow_kwargs = self._build_workflow_kwargs()
-            db_mgmt(
+            skipped = db_mgmt(
                 workflow_kwargs["client_directory"],
                 workflow_kwargs["invoice_folder"],
                 workflow_kwargs["soa_folder"],
@@ -90,7 +90,7 @@ class ScanTab:
                 workflow_kwargs["agg"],
             )
             rows = self._flatten_invoice_rows(invoices_to_ship)
-            self.root.after(0, lambda: self._on_scan_complete(rows))
+            self.root.after(0, lambda r=rows, w=skipped: self._on_scan_complete(r, w))
         except Exception as exc:  # noqa: BLE001
             err = exc
             err_trace = traceback.format_exc()
@@ -126,9 +126,12 @@ class ScanTab:
                 )
         return rows
 
-    def _on_scan_complete(self, rows: list[tuple]):
-        message = "Scan completed."
-        self.scan_report_var.set(message)
+    def _on_scan_complete(self, rows: list[tuple], skipped: list[str] | None = None):
+        if skipped:
+            warning_text = "⚠ Files skipped during scan:\n" + "\n".join(f"  • {w}" for w in skipped)
+            self.scan_report_var.set(warning_text)
+        else:
+            self.scan_report_var.set("Scan completed.")
         self.update_scan_table(rows)
         self.start_scan_button.state(["!disabled"])
 

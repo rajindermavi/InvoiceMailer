@@ -1,6 +1,7 @@
 # config.py
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from pathlib import Path
@@ -9,6 +10,8 @@ import json
 from typing import Dict, Any
 
 from cryptography.fernet import Fernet
+
+logger = logging.getLogger(__name__)
 
 APP_NAME = "InvoiceMailer"
 DB_FILENAME = "invoice_mailer.sqlite3"
@@ -115,7 +118,7 @@ class SecureConfig:
         self._log(f"DPAPI enabled: {self._use_dpapi}")
 
     def _log(self, message: str) -> None:
-        print(f"[SecureConfig] {message}")
+        logger.debug("[SecureConfig] %s", message)
 
     def _init_dpapi(self) -> bool:
         """
@@ -126,7 +129,7 @@ class SecureConfig:
         try:
             import win32crypt  # type: ignore
         except Exception as exc:
-            self._log(f"win32crypt unavailable; DPAPI disabled ({exc}).")
+            logger.warning("[SecureConfig] win32crypt unavailable; DPAPI disabled (%s).", exc)
             return False
 
         self._win32crypt = win32crypt
@@ -147,7 +150,7 @@ class SecureConfig:
         try:
             stored = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
         except Exception:
-            self._log("Keyring lookup failed; continuing without keyring.")
+            logger.warning("[SecureConfig] Keyring lookup failed; continuing without keyring.")
             return None
         if not stored:
             self._log("No key found in keyring.")
@@ -169,7 +172,7 @@ class SecureConfig:
             self._log("Saved key to keyring.")
             return True
         except Exception:
-            self._log("Failed to save key to keyring.")
+            logger.warning("[SecureConfig] Failed to save key to keyring; will fall back to file.")
             return False
 
     def _ensure_fernet(self) -> Fernet:
@@ -212,7 +215,11 @@ class SecureConfig:
                 return key
             raise RuntimeError("Unable to protect encryption key on Windows (DPAPI/keyring unavailable).")
 
-        self._log(f"Writing key file: {key_file}")
+        logger.warning(
+            "[SecureConfig] Writing unprotected key file: %s — "
+            "config is protected by filesystem permissions only.",
+            key_file,
+        )
         key_file.write_bytes(key)
         self._key_storage = "file"
         return key
@@ -305,8 +312,7 @@ class SecureConfig:
             self._log("Encryption key stored alongside encrypted config file.")
         else:
             self._log("Encryption key storage location unknown.")
-        msg = "All data securely encrypted!"
-        print(msg)
+        self._log("All data securely encrypted.")
 
     def is_keyring_backed(self) -> bool:
         """Return True if the encryption key is persisted in the OS keyring."""

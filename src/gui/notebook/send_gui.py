@@ -78,11 +78,15 @@ class SendTab:
             if period_month is None or period_year is None:
                 raise ValueError("Month and year are required for sending emails.")
 
-            db_mgmt(
+            skipped = db_mgmt(
                 workflow_kwargs["client_directory"],
                 workflow_kwargs["invoice_folder"],
                 workflow_kwargs["soa_folder"],
             )
+            if skipped:
+                self.root.after(0, lambda w=skipped: self.log(
+                    "⚠ Files skipped during scan:\n" + "\n".join(f"  • {s}" for s in w)
+                ))
             period_str = f"{int(period_year)}-{int(period_month):02d}"
             client_list = get_client_list(workflow_kwargs["agg"])
 

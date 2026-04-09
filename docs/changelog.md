@@ -58,7 +58,7 @@ than a generic `ValueError: invalid literal for int()`.
 L2 (`collect_files_to_zip` unguarded) was assessed and closed — missing files are
 already caught at the scan step with a user-facing popup.
 
-### Code audit fixes (F-01, F-02, F-03, F-04, F-05)
+### Code audit fixes (F-01, F-02, F-03, F-04, F-05, F-06, F-07)
 
 Addressed four findings from `docs/code_audit.md`:
 
@@ -71,6 +71,10 @@ Addressed four findings from `docs/code_audit.md`:
 - **F-04** (`utility/send.py` · reporter summary): Wrapped the reporter summary `client.send()` call in `_send_via_graph` and the `server.send_message()` call in `_send_via_smtp` in `try/except`. A reporter failure now logs the error and returns normally, so the activity log is always returned to the caller.
 
 - **F-05** (`utility/send.py` · template rendering): Replaced `str.format(**fmt)` with `string.Template.safe_substitute()`. Unknown placeholders are now left as-is instead of raising `KeyError`, and attribute-access abuse via `{obj.attr}` syntax is no longer possible. A `_BRACE_VAR` regex converts legacy `{key}` syntax to `${key}` at render time so existing stored configs continue to work without migration. Default templates in `send.py` and `gui/utility.py` updated to `${key}` syntax.
+
+- **F-06** (`db/db_utility.py` · `db_mgmt`): `db_mgmt` now returns `list[str]` of warning messages for every file skipped (date extraction failure, SOA filename mismatch). All three GUI threads (`scan_gui`, `zip_gui`, `send_gui`) capture the returned list and surface it in the UI — the Scan tab shows skipped files under the results table, the Zip tab appends them to the status label, and the Send tab logs them to the activity text box before sending.
+
+- **F-07** (`config.py` · `SecureConfig`): Replaced `print()` with `logging.getLogger(__name__)`. Routine operational messages use `logger.debug()`; security-degraded paths (DPAPI unavailable, keyring lookup/save failure, unprotected key file written) use `logger.warning()`. The standalone `print("All data securely encrypted!")` in `_announce_encryption_status` is now routed through `logger.debug()`. No diagnostic output goes to stdout.
 
 ### Dead code removal (L1)
 

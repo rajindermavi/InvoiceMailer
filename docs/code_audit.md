@@ -127,7 +127,7 @@ Additionally, Python's `str.format()` on a user-controlled template string allow
 
 ---
 
-### F-06 · Invoices and SOAs silently skipped when date extraction fails
+### F-06 · Invoices and SOAs silently skipped when date extraction fails ✅ Fixed
 **File:** [src/backend/db/db_utility.py:50-53](src/backend/db/db_utility.py#L50-L53), [src/backend/db/db_utility.py:72-75](src/backend/db/db_utility.py#L72-L75)  
 **Severity:** High (business logic)
 
@@ -146,7 +146,7 @@ The same applies to SOA files.
 
 ---
 
-### F-07 · `SecureConfig._log()` uses `print()` — lost in production EXE, exposes paths
+### F-07 · `SecureConfig._log()` uses `print()` — lost in production EXE, exposes paths ✅ Fixed
 **File:** [src/backend/config.py:117-119](src/backend/config.py#L117-L119), [src/backend/config.py:309](src/backend/config.py#L309)  
 **Severity:** Medium
 
@@ -287,9 +287,9 @@ These areas are handled well and should be preserved:
 | 2 | F-02 (NOT NULL email constraint) | ✅ Fixed | Crashes DB rebuild for clients with no email |
 | 3 | F-03 (wrong email lookup key in `agg=customer_number`) | ✅ Fixed | Silent wrong business outcome |
 | 4 | F-04 (reporter email no error handling) | ✅ Fixed | Activity log silently lost on send errors |
-| 5 | F-06 (invoices silently skipped on date failure) | Open | Invoices missed with no user feedback |
+| 5 | F-06 (invoices silently skipped on date failure) | ✅ Fixed | Invoices missed with no user feedback |
 | 6 | F-05 (template KeyError crashes send) | ✅ Fixed | Confusing failure with user-visible impact |
-| 7 | F-07 (`print()` in SecureConfig) | Open | Diagnostic info lost in production |
+| 7 | F-07 (`print()` in SecureConfig) | ✅ Fixed | Diagnostic info lost in production |
 | 8 | F-08 (plaintext key on non-Windows) | Open | Security regression on non-Windows fallback |
 | 9 | F-09 (module-level DB_PATH) | Open | Testing reliability |
 | 10 | F-10–F-14 | Open | Low-severity quality items |

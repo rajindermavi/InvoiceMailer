@@ -44,7 +44,7 @@ class ZipTab:
     def _preview_thread(self):
         try:
             workflow_kwargs = self._build_workflow_kwargs()
-            db_mgmt(
+            skipped = db_mgmt(
                 workflow_kwargs["client_directory"],
                 workflow_kwargs["invoice_folder"],
                 workflow_kwargs["soa_folder"],
@@ -72,8 +72,11 @@ class ZipTab:
                 for shipment in email_shipment
             ]
             self.email_shipment = email_shipment
-            status_message = "ZIP generation complete."
-            self.root.after(0, lambda: self._on_preview_complete(status_message, rows))
+            if skipped:
+                status_message = "ZIP generation complete. ⚠ Files skipped:\n" + "\n".join(f"  • {w}" for w in skipped)
+            else:
+                status_message = "ZIP generation complete."
+            self.root.after(0, lambda msg=status_message, r=rows: self._on_preview_complete(msg, r))
         except Exception as exc:  # noqa: BLE001
             err = exc
             err_trace = traceback.format_exc()
