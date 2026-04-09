@@ -51,16 +51,23 @@ class SMTPConfig:
 # Helpers                                                                      #
 # --------------------------------------------------------------------------- #
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
 def normalize_recipients(email_list: list[str]) -> list[str]:
-    """Split semicolon-separated entries, strip whitespace, drop empties."""
+    """Split semicolon-separated entries, strip whitespace, drop empties and invalid addresses."""
     recipients: list[str] = []
     for entry in email_list:
         if not entry:
             continue
         for addr in entry.split(";"):
             addr = addr.strip()
-            if addr:
-                recipients.append(addr)
+            if not addr:
+                continue
+            if not _EMAIL_RE.match(addr):
+                logger.warning("Skipping invalid email address: %r", addr)
+                continue
+            recipients.append(addr)
     return recipients
 
 

@@ -161,7 +161,7 @@ Additionally, the log messages include the full filesystem path (`Storage direct
 
 ---
 
-### F-08 · Fernet key written in plaintext on non-Windows when keyring unavailable
+### F-08 · Fernet key written in plaintext on non-Windows when keyring unavailable ✅ Fixed
 **File:** [src/backend/config.py:215-218](src/backend/config.py#L215-L218)  
 **Severity:** Medium (security)
 
@@ -290,6 +290,5 @@ These areas are handled well and should be preserved:
 | 5 | F-06 (invoices silently skipped on date failure) | ✅ Fixed | Invoices missed with no user feedback |
 | 6 | F-05 (template KeyError crashes send) | ✅ Fixed | Confusing failure with user-visible impact |
 | 7 | F-07 (`print()` in SecureConfig) | ✅ Fixed | Diagnostic info lost in production |
-| 8 | F-08 (plaintext key on non-Windows) | Open | Security regression on non-Windows fallback |
 | 9 | F-09 (module-level DB_PATH) | Open | Testing reliability |
 | 10 | F-10–F-14 | Open | Low-severity quality items |

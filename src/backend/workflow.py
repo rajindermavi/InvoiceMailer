@@ -1,6 +1,9 @@
 
+import logging
 from pathlib import Path
 import re
+
+logger = logging.getLogger(__name__)
 from src.backend.db.db_path import get_db_path
 from src.backend.db.db import (
     get_client,
@@ -15,12 +18,17 @@ from src.backend.utility.send import ClientBatch, SMTPConfig, send_all_emails
 
 
 
+_VALID_AGG = {"head_office", "customer_number"}
+
+
 def scan_for_invoices(
     client_list: list,
     period_year: int | str,
     period_month: int | str,
     agg: str,
 ):
+    if agg not in _VALID_AGG:
+        raise ValueError(f"agg must be 'head_office' or 'customer_number', got {agg!r}")
     base_year = int(period_year)
     base_month = int(period_month)
     period_str = f"{base_year}-{base_month:02d}"
@@ -66,6 +74,7 @@ def prep_invoice_zips(
     email_shipment = []
     base_zip_dir = Path(zip_output_dir) if zip_output_dir else get_db_path().parent
     base_zip_dir.mkdir(parents=True, exist_ok=True)
+    used_stems: set[str] = set()
 
     for client_key, invoices in invoices_to_ship.items():
         if not invoices:
@@ -86,7 +95,16 @@ def prep_invoice_zips(
         if not files_to_zip_paths:
             continue
 
-        zip_path = collect_files_to_zip(files_to_zip_paths, base_zip_dir / f"{client_key}.zip")
+        safe_stem = re.sub(r'[<>:"/\\|?*]+', "_", client_key).strip().strip(".")
+        if safe_stem in used_stems:
+            counter = 2
+            while f"{safe_stem}_{counter}" in used_stems:
+                counter += 1
+            safe_stem = f"{safe_stem}_{counter}"
+            logger.warning("ZIP filename collision for %r — writing as %s.zip", client_key, safe_stem)
+        used_stems.add(safe_stem)
+
+        zip_path = collect_files_to_zip(files_to_zip_paths, base_zip_dir / f"{safe_stem}.zip")
 
         email_list = get_client_email(**{agg: client_key})
         email_shipment.append(

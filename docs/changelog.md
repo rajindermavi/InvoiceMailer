@@ -2,6 +2,35 @@
 
 ## 2026-04-08
 
+### ZIP filename collision fix (F-12, partial)
+
+The re-run overwrite behaviour is intentional. The remaining risk — two `head_office` values containing different special characters that sanitize to the same filename — is now addressed in `src/backend/workflow.py` · `prep_invoice_zips`:
+
+- `client_key` is now sanitized (`re.sub(r'[<>:"/\\|?*]+', "_", ...)`) before being used as the ZIP stem, matching the existing sanitization applied to `head_office_name`.
+- A `used_stems` set tracks sanitized names within each run. On collision the stem gets a numeric suffix (`_2`, `_3`, …) and a `logger.warning` names the affected client key.
+
+Also added `import logging` / `logger = logging.getLogger(__name__)` to `workflow.py`.
+
+---
+
+### Code audit fixes (F-13, F-14)
+
+- **F-13** (`utility/extract_pdf_text.py` · `normalize_first_date`): Changed `dateparser.parse(..., fuzzy=True)` to `fuzzy=False`. The regex patterns in `DATE_PATTERNS` already narrow candidates to date-shaped strings, so fuzzy parsing only added risk of misidentifying surrounding text as a date component. Strict parsing is correct here.
+
+- **F-14** (`db/db.py` · schema and dead functions): Removed the inert `sent`, `sent_at`, and `send_error` columns from the `invoices` and `soa` table definitions, the `idx_invoices_sent` index, and the `mark_invoice_sent` function (which was implemented but never called in any workflow path). Also removed the `sent` filter parameter from `get_invoices` and `get_soa_by_head_office`, and cleaned up the module docstring which referenced a `get_unsent_invoices` function that was never defined. Because the DB is rebuilt from scratch on every scan, there is no migration needed.
+
+---
+
+### Code audit fixes (F-09, F-10, F-11)
+
+- **F-09** (`db/db.py` · `DB_PATH`): Removed the module-level `DB_PATH = get_db_path()` constant. `_connect()` now calls `get_db_path()` at connection time, so `APP_DB_PATH` overrides take effect even if set after the module is first imported. This also fixes per-test DB isolation when tests reconfigure the environment between cases.
+
+- **F-10** (`workflow.py` · `scan_for_invoices`): Added `agg` validation against `{'head_office', 'customer_number'}` at the top of the function. An invalid value now raises `ValueError: agg must be 'head_office' or 'customer_number', got '...'` rather than an opaque `TypeError` from `get_client()`.
+
+- **F-11** (`utility/send.py` · `normalize_recipients`): Added `_EMAIL_RE` regex check (`^[^@\s]+@[^@\s]+\.[^@\s]+$`). Addresses that fail the check are skipped with a named `logger.warning("Skipping invalid email address: %r", addr)` rather than being passed to the SMTP server and producing a cryptic server-side rejection.
+
+---
+
 ### Insecure key-write confirmation dialog (F-08)
 
 Addressed the F-08 audit finding in `docs/code_audit.md`.

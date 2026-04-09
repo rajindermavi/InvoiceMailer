@@ -7,8 +7,6 @@ Usage example:
         init_db,
         add_or_update_client,
         record_invoice,
-        get_unsent_invoices,
-        mark_invoice_sent,
     )
 
     init_db()  # safe to call multiple times
@@ -28,10 +26,6 @@ Usage example:
         period_month="2025-11",
     )
 
-    unsent = get_unsent_invoices()
-    for inv in unsent:
-        print(inv["inv_file_path"], inv["customer_number"])
-
 """
 
 from __future__ import annotations
@@ -44,10 +38,8 @@ from typing import Iterable, Iterator, Optional
 
 from src.backend.db.db_path import get_db_path  # or from db import get_db_path if in same file
 
-DB_PATH: Path = get_db_path()
-
 def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
@@ -103,10 +95,7 @@ def init_db() -> None:
                 head_office_name    TEXT,
                 soa_file_path       TEXT    NOT NULL UNIQUE,
                 soa_date            TEXT,      -- ISO date string: YYYY-MM-DD
-                soa_period_month    TEXT,      -- e.g. '2025-11' for grouping/zipping
-                sent                INTEGER NOT NULL DEFAULT 0,  -- 0 = not sent, 1 = sent
-                sent_at             TEXT,      -- ISO datetime string when successfully sent
-                send_error          TEXT       -- last error message, if any
+                soa_period_month    TEXT       -- e.g. '2025-11' for grouping/zipping
             );
             """
         )
@@ -121,18 +110,12 @@ def init_db() -> None:
                 ship_name           TEXT    NOT NULL,
                 inv_file_path       TEXT    NOT NULL UNIQUE,
                 invoice_date        TEXT,      -- ISO date string: YYYY-MM-DD
-                inv_period_month    TEXT,      -- e.g. '2025-11' for grouping/zipping
-                sent                INTEGER NOT NULL DEFAULT 0,  -- 0 = not sent, 1 = sent
-                sent_at             TEXT,      -- ISO datetime string when successfully sent
-                send_error          TEXT       -- last error message, if any
+                inv_period_month    TEXT       -- e.g. '2025-11' for grouping/zipping
             );
             """
         )
 
         # Helpful indexes
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_invoices_sent ON invoices(sent);"
-        )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_invoices_client_month "
             "ON invoices(customer_number, inv_period_month);"
@@ -260,39 +243,6 @@ def record_invoice(
         )
 
 
-def mark_invoice_sent(
-    file_path: str,
-    sent_at: str,
-    error: Optional[str] = None,
-) -> None:
-    """
-    Mark a single invoice as sent (or failed).
-
-    If error is None, sent=1 and send_error cleared.
-    If error is non-empty, sent stays 0 but send_error is stored.
-    """
-    with get_conn() as conn:
-        if error is None:
-            conn.execute(
-                """
-                UPDATE invoices
-                SET sent = 1,
-                    sent_at = ?,
-                    send_error = NULL
-                WHERE inv_file_path = ?;
-                """,
-                (sent_at, file_path),
-            )
-        else:
-            conn.execute(
-                """
-                UPDATE invoices
-                SET send_error = ?
-                WHERE inv_file_path = ?;
-                """,
-                (error, file_path),
-            )
-
 # SQL READ
 
 def get_client_list(
@@ -334,7 +284,6 @@ def get_invoices(
     head_office: Optional[str] = None,
     customer_number: Optional[str] = None,
     period_month: Optional[str] = None,
-    sent: Optional[int] = None
 ) -> list[sqlite3.Row]:
     """
     Return a list of invoices (rows) as sqlite3.Row objects.
@@ -343,7 +292,6 @@ def get_invoices(
         head_office – match by the client's head_office (joins clients)
         customer_number  – only invoices for that client (customer_number column)
         period_month – e.g. '2025-11'
-        sent
     """
     query = "SELECT inv.* FROM invoices inv"
     params: list[object] = []
@@ -368,10 +316,6 @@ def get_invoices(
     if period_month is not None:
         query += " AND inv_period_month = ?"
         params.append(period_month)
-
-    if sent is not None:
-        query += " AND inv.sent = ?"
-        params.append(sent)
 
     with get_conn() as conn:
         cur = conn.execute(query, params)
@@ -415,10 +359,9 @@ def get_soa_by_head_office(
     head_office: Optional[str] = None,
     head_office_name: Optional[str] = None,
     period_month: Optional[str] = None,
-    sent: Optional[int] = None,
 ) -> list[sqlite3.Row]:
     """
-    Return SOA rows filtered by head office, name, month, or sent status.
+    Return SOA rows filtered by head office, name, or month.
     """
     query = "SELECT * FROM soa WHERE 1=1"
     params: list[object] = []
@@ -434,10 +377,6 @@ def get_soa_by_head_office(
     if period_month is not None:
         query += " AND soa_period_month = ?"
         params.append(period_month)
-
-    if sent is not None:
-        query += " AND sent = ?"
-        params.append(sent)
 
     with get_conn() as conn:
         cur = conn.execute(query, params)
