@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 import re
 import json
-from typing import Dict, Any
+from typing import Callable, Dict, Any
 
 from cryptography.fernet import Fernet
 
@@ -108,11 +108,12 @@ def get_encrypted_config_path() -> Path:
     return get_storage_dir() / "config.enc"
 
 class SecureConfig:
-    def __init__(self):
+    def __init__(self, confirm_insecure_write: Callable[[], bool] | None = None):
         self._win32crypt: Any | None = None
         self._use_dpapi = self._init_dpapi()
         self._fernet: Fernet | None = None
         self._key_storage: str | None = None
+        self._confirm_insecure_write = confirm_insecure_write
         self._log(f"Storage directory: {get_storage_dir()}")
         self._log(f"Config path: {get_encrypted_config_path()}")
         self._log(f"DPAPI enabled: {self._use_dpapi}")
@@ -216,10 +217,16 @@ class SecureConfig:
             raise RuntimeError("Unable to protect encryption key on Windows (DPAPI/keyring unavailable).")
 
         logger.warning(
-            "[SecureConfig] Writing unprotected key file: %s — "
-            "config is protected by filesystem permissions only.",
+            "[SecureConfig] About to write unprotected key file: %s — "
+            "config will be protected by filesystem permissions only.",
             key_file,
         )
+        if self._confirm_insecure_write is not None:
+            if not self._confirm_insecure_write():
+                raise RuntimeError(
+                    "Cancelled: user declined to save config with unprotected key storage. "
+                    "Install a keyring backend or run on Windows with DPAPI available."
+                )
         key_file.write_bytes(key)
         self._key_storage = "file"
         return key

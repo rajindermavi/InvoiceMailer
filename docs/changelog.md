@@ -2,6 +2,20 @@
 
 ## 2026-04-08
 
+### Insecure key-write confirmation dialog (F-08)
+
+Addressed the F-08 audit finding in `docs/code_audit.md`.
+
+- **`src/backend/config.py` · `SecureConfig.__init__`**: Added optional `confirm_insecure_write: Callable[[], bool] | None` parameter. When provided, this callback is invoked before the last-resort plaintext key write (non-Windows, no keyring). If the callback returns `False`, a `RuntimeError` is raised and the key is never written, preventing silent storage of credentials with no protection beyond filesystem permissions.
+
+- **`src/gui/app_gui.py` · `InvoiceMailerGUI.__init__`**: Passes `_confirm_insecure_key_write` as the callback when constructing `SecureConfig`. The callback shows a `tkinter.messagebox.askokcancel` warning dialog explaining that the encryption key will be stored as a plain file. The user must click **OK** to proceed or **Cancel** to abort saving.
+
+The backend layer remains GUI-free; the confirmation mechanism is injected as a callable at construction time, keeping the architecture boundary (GUI → Backend) intact.
+
+---
+
+
+
 ### Removed `src/backend/utility/email.py`
 
 Reviewed the boundary violations documented in `docs/system_contracts.md`:

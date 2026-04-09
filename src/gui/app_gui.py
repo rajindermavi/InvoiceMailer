@@ -25,7 +25,9 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
 
     def __init__(self, root, secure_config: SecureConfig | None = None):
         self.root = root
-        self.secure_config = secure_config or SecureConfig()
+        self.secure_config = secure_config or SecureConfig(
+            confirm_insecure_write=self._confirm_insecure_key_write
+        )
         self.settings = self.load_settings_from_store()
         self.email_shipment: list[dict] = []
         self.root.title("Invoice Mailer")
@@ -218,6 +220,17 @@ class InvoiceMailerGUI(SettingsTab, EmailSettingsTab, ScanTab, ZipTab, SendTab):
         self.root.clipboard_clear()
         self.root.clipboard_append(value)
         self.root.update()
+
+    def _confirm_insecure_key_write(self) -> bool:
+        return messagebox.askokcancel(
+            "Security Warning",
+            "No secure key storage (keyring or DPAPI) is available on this system.\n\n"
+            "Your encryption key will be saved as a plain file, protected only by "
+            "filesystem permissions. Anyone with read access to your home directory "
+            "could decrypt your stored credentials.\n\n"
+            "Click OK to proceed with reduced security, or Cancel to abort.",
+            icon="warning",
+        )
 
     def _parse_device_flow_message(self, message: str) -> tuple[str | None, str | None]:
         """
