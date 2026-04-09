@@ -13,17 +13,8 @@ from src.backend.config import (
     get_date_regex,
     pdf_rect_settings,
     page_index,
-    try_ocr_if_needed,
 )
 
-try:
-    import pytesseract
-    from PIL import Image
-
-    OCR_LIB_AVAILABLE = True
-except ImportError as _ocr_import_err:
-    logger.warning("OCR unavailable (%s); falling back to text-only extraction", _ocr_import_err)
-    OCR_LIB_AVAILABLE = False
 
 PdfBox = Tuple[float, float, float, float]
 
@@ -58,19 +49,6 @@ def _read_box_from_config(field: str) -> Optional[PdfBox]:
 def extract_text_from_region(page: fitz.Page, rect: fitz.Rect) -> str:
     return page.get_text("text", clip=rect)
 
-def ocr_text_from_region(page: fitz.Page, rect: fitz.Rect, scale: float = 2.0) -> str:
-    if not try_ocr_if_needed or not OCR_LIB_AVAILABLE:
-        return ""
-    mat = fitz.Matrix(scale, scale)
-    pix = page.get_pixmap(matrix=mat, clip=rect, alpha=False)
-    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-    try:
-        return pytesseract.image_to_string(img)
-    except (pytesseract.TesseractNotFoundError, OSError) as exc:
-        logger.warning("Tesseract OCR failed: %s", exc)
-        return ""
-    finally:
-        img.close()
 
 def _dedupe_preserve_order(texts: List[str]) -> List[str]:
     seen: set[str] = set()
@@ -117,10 +95,6 @@ def extract_pdf_text(
         expanded = extract_text_from_region(page, rect_expanded).strip()
         if expanded:
             texts.append(expanded)
-
-        ocr_txt = ocr_text_from_region(page, rect_expanded).strip()
-        if ocr_txt:
-            texts.append(ocr_txt)
 
         combined = "\n".join(_dedupe_preserve_order([t for t in texts if t]))
         return combined

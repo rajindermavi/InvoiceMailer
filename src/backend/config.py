@@ -61,7 +61,7 @@ pdf_rect_settings: Dict[str, Dict[str, float]] = {
 page_index = 0
 
 # If true, fall back to OCR when text extraction fails
-try_ocr_if_needed = True
+try_ocr_if_needed = False
 
 ###### Common environment helpers ######
 
