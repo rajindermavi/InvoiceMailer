@@ -21,7 +21,7 @@ Usage example:
         tax_invoice_no="INV-001",
         customer_number="CLIENT123",
         ship_name="SAFE MARINE",
-        invoice_file_path=r"\\server\invoices\CLIENT123_2025-11-01_1234.pdf",
+        invoice_file_path=r"\\server\\invoices\\CLIENT123_2025-11-01_1234.pdf",
         invoice_date="2025-11-01",
         period_month="2025-11",
     )
@@ -252,9 +252,11 @@ def get_client_list(
         query = "SELECT DISTINCT head_office FROM clients"
     elif client_type == 'customer_number':
         query = "SELECT DISTINCT customer_number FROM clients"
+    elif client_type == 'ship_name':
+        query = "SELECT DISTINCT ship_name FROM invoices"
     else:
         raise ValueError(
-            f"client_type must be 'head_office' or 'customer_number', got {client_type!r}"
+            f"client_type must be 'head_office', 'customer_number', or 'ship_name', got {client_type!r}"
         )
 
     with get_conn() as conn:
@@ -269,12 +271,12 @@ def get_client(
     params: list[object] = []
 
     if head_office is not None:
-        query += " AND head_office = ?"
-        params.append(head_office)
+        query += " AND TRIM(head_office) = ?"
+        params.append(head_office.strip())
 
     if customer_number is not None:
-        query += " AND customer_number = ?"
-        params.append(customer_number)
+        query += " AND TRIM(customer_number) = ?"
+        params.append(customer_number.strip())
 
     with get_conn() as conn:
         cur = conn.execute(query, params)
@@ -283,6 +285,7 @@ def get_client(
 def get_invoices(
     head_office: Optional[str] = None,
     customer_number: Optional[str] = None,
+    ship_name: Optional[str] = None,
     period_month: Optional[str] = None,
 ) -> list[sqlite3.Row]:
     """
@@ -312,6 +315,10 @@ def get_invoices(
     if customer_number is not None:
         query += " AND TRIM(inv.customer_number) = ?"
         params.append(customer_number.strip())
+
+    if ship_name is not None:
+        query += " AND TRIM(inv.ship_name) = ?"
+        params.append(ship_name.strip())
 
     if period_month is not None:
         query += " AND inv_period_month = ?"
@@ -354,6 +361,77 @@ def get_client_email(
     if row is None:
         return []
     return [email for email in row if email]
+
+def get_all_invoices() -> list[sqlite3.Row]:
+    """Return every invoice row joined with its client's head_office."""
+    with get_conn() as conn:
+        return conn.execute(
+            """
+            SELECT inv.*, c.head_office
+            FROM invoices inv
+            LEFT JOIN clients c ON TRIM(c.customer_number) = TRIM(inv.customer_number)
+            """
+        ).fetchall()
+
+
+def get_client_soa_summary() -> list[dict]:
+    """Return per-head-office summary for the client scan pane.
+
+    Merges the clients and soa tables so each unique head office appears once,
+    with flags indicating whether it was found in the client list (xlsx) and
+    whether an SOA file was found.
+    """
+    with get_conn() as conn:
+        client_rows = conn.execute("SELECT DISTINCT head_office FROM clients").fetchall()
+        soa_rows = conn.execute("SELECT DISTINCT head_office, head_office_name FROM soa").fetchall()
+
+    client_set = {r["head_office"].strip() for r in client_rows}
+    soa_map = {r["head_office"].strip(): r["head_office_name"] for r in soa_rows}
+    all_head_offices = sorted(client_set | set(soa_map.keys()))
+
+    return [
+        {
+            "head_office": ho,
+            "head_office_name": soa_map.get(ho, ""),
+            "client_found": ho in client_set,
+            "soa_found": ho in soa_map,
+        }
+        for ho in all_head_offices
+    ]
+
+
+def get_clients_by_head_offices(head_offices: list[str], agg: str) -> list[str]:
+    """Return client identifiers (keyed by agg) for the given head offices.
+
+    If agg is 'head_office', returns the list as-is.
+    If agg is 'customer_number', looks up all customer numbers for those head offices.
+    If agg is 'ship_name', returns all distinct ship names from invoices for those head offices.
+    """
+    if not head_offices:
+        return []
+    placeholders = ",".join("?" * len(head_offices))
+    if agg == "head_office":
+        return list(head_offices)
+    if agg == "customer_number":
+        with get_conn() as conn:
+            rows = conn.execute(
+                f"SELECT DISTINCT customer_number FROM clients WHERE head_office IN ({placeholders})",
+                head_offices,
+            ).fetchall()
+        return [r["customer_number"] for r in rows]
+    # agg == "ship_name": distinct ship names from invoices joined to clients
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT DISTINCT inv.ship_name
+            FROM invoices inv
+            JOIN clients c ON TRIM(c.customer_number) = TRIM(inv.customer_number)
+            WHERE c.head_office IN ({placeholders})
+            """,
+            head_offices,
+        ).fetchall()
+    return [r["ship_name"] for r in rows]
+
 
 def get_soa_by_head_office(
     head_office: Optional[str] = None,

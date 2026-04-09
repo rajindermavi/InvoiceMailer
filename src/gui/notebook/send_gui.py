@@ -43,6 +43,7 @@ class SendTab:
         buttons.pack(pady=10)
 
         self.start_send_button = ttk.Button(buttons, text="Start Email Send", command=self.start_send)
+        self.start_send_button.state(["disabled"])
         self.start_send_button.pack(side="left", padx=(0, 5))
 
         self.clear_log_button = ttk.Button(buttons, text="Clear Text Screen", command=self.clear_send_log)

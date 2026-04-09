@@ -17,59 +17,27 @@ from src.backend.utility.extract_pdf_text import extract_pdf_date
 from src.backend.utility.read_xlsx import iter_xlsx_rows_as_dicts
 
 
+def scan_clients_and_soa(client_directory: Path, soa_folder: Path) -> list[str]:
+    """Rebuild the database from the client list (xlsx) and SOA files.
 
-def db_mgmt(client_directory: Path, invoice_folder: Path, soa_folder: Path) -> list[str]:
-    """Rebuild the database from source files.
-
-    Returns a list of warning strings for any files that were skipped,
-    so callers can surface them in the UI.
+    Drops and recreates the database, then populates the clients and soa tables.
+    Returns a list of warning strings for any files that were skipped.
     """
     skipped: list[str] = []
-
-    inv_file_regex = get_file_regex('invoice')
     soa_file_regex = get_file_regex('soa')
 
     db_path = get_db_path()
-
     if db_path.exists():
         db_path.unlink()
-
-    # CREATE NEW DB
     init_db()
 
     for row in iter_xlsx_rows_as_dicts(client_directory):
-        head_office = row.get('Head Office','')
+        head_office = row.get('Head Office', '')
         customer_number = row.get('Customer Number')
-        emails = [row.get(f'emailforinvoice{idx}') for idx in range(1,6) if row.get(f'emailforinvoice{idx}')]
-        add_or_update_client(head_office,customer_number,emails)
+        emails = [row.get(f'emailforinvoice{idx}') for idx in range(1, 6) if row.get(f'emailforinvoice{idx}')]
+        add_or_update_client(head_office, customer_number, emails)
 
-    for file in invoice_folder.rglob('*invoice*.pdf',case_sensitive=False):
-
-        m = inv_file_regex.match(file.name)
-        if not m:
-            continue
-        customer_number = m.group(1)
-        tax_invoice_no = m.group(2)
-        ship_name = m.group(3)
-        inv_file_path = file.as_posix()
-        invoice_date = extract_pdf_date(inv_file_path, field='inv_date')
-        if invoice_date is None:
-            msg = f"Could not extract date — invoice skipped: {file.name}"
-            logger.warning(msg)
-            skipped.append(msg)
-            continue
-        inv_period_month = invoice_date.rsplit('-', 1)[0]
-        record_invoice(
-            tax_invoice_no,
-            customer_number,
-            ship_name,
-            inv_file_path,
-            invoice_date,
-            inv_period_month
-        )
-
-    for file in soa_folder.rglob('Statement*.pdf',case_sensitive=False):
-
+    for file in soa_folder.rglob('Statement*.pdf', case_sensitive=False):
         m = soa_file_regex.match(file.name)
         if not m:
             msg = f"SOA filename did not match expected pattern — skipped: {file.name}"
@@ -86,12 +54,46 @@ def db_mgmt(client_directory: Path, invoice_folder: Path, soa_folder: Path) -> l
             skipped.append(msg)
             continue
         soa_period_month = soa_date.rsplit('-', 1)[0]
-        add_or_update_soa(
-            head_office,
-            head_office_name,
-            soa_file_path,
-            soa_date,
-            soa_period_month
-        )
+        add_or_update_soa(head_office, head_office_name, soa_file_path, soa_date, soa_period_month)
 
+    return skipped
+
+
+def scan_invoices_db(invoice_folder: Path) -> list[str]:
+    """Scan invoice PDFs and populate the invoices table.
+
+    Assumes the DB already exists (run scan_clients_and_soa first).
+    Returns a list of warning strings for any files that were skipped.
+    """
+    skipped: list[str] = []
+    inv_file_regex = get_file_regex('invoice')
+
+    for file in invoice_folder.rglob('*invoice*.pdf', case_sensitive=False):
+        m = inv_file_regex.match(file.name)
+        if not m:
+            continue
+        customer_number = m.group(1)
+        tax_invoice_no = m.group(2)
+        ship_name = m.group(3)
+        inv_file_path = file.as_posix()
+        invoice_date = extract_pdf_date(inv_file_path, field='inv_date')
+        if invoice_date is None:
+            msg = f"Could not extract date — invoice skipped: {file.name}"
+            logger.warning(msg)
+            skipped.append(msg)
+            continue
+        inv_period_month = invoice_date.rsplit('-', 1)[0]
+        record_invoice(tax_invoice_no, customer_number, ship_name, inv_file_path, invoice_date, inv_period_month)
+
+    return skipped
+
+
+def db_mgmt(client_directory: Path, invoice_folder: Path, soa_folder: Path) -> list[str]:
+    """Rebuild the full database from source files.
+
+    Convenience wrapper that runs scan_clients_and_soa then scan_invoices_db.
+    Returns a combined list of skipped-file warnings.
+    """
+    skipped = scan_clients_and_soa(client_directory, soa_folder)
+    skipped += scan_invoices_db(invoice_folder)
     return skipped

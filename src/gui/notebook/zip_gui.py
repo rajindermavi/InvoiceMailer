@@ -25,7 +25,20 @@ class ZipTab:
         frame = ttk.LabelFrame(self.tab_preview, text="ZIP Output")
         frame.pack(fill="both", expand=True, padx=10, pady=10)
 
+        agg_frame = ttk.LabelFrame(frame, text="Zip invoices by")
+        agg_frame.pack(fill="x", padx=5, pady=(8, 5))
+        self.zip_agg_var = tk.StringVar(value=getattr(self, "aggregate_by_var", tk.StringVar(value="head_office")).get())
+        for label, value in [
+            ("Head Office",     "head_office"),
+            ("Customer Number", "customer_number"),
+            ("Ship Name",       "ship_name"),
+        ]:
+            ttk.Radiobutton(agg_frame, text=label, variable=self.zip_agg_var, value=value).pack(
+                side="left", padx=12, pady=4
+            )
+
         self.generate_zip_button = ttk.Button(frame, text="Generate ZIP", command=self.start_preview)
+        self.generate_zip_button.state(["disabled"])
         self.generate_zip_button.pack(pady=10)
         self.preview_status_var = tk.StringVar()
         ttk.Label(frame, textvariable=self.preview_status_var, wraplength=800, justify="left").pack(fill="x", padx=5)
@@ -55,14 +68,15 @@ class ZipTab:
                 raise ValueError("Month and year are required for generating ZIPs.")
 
             period_str = f"{int(period_year)}-{int(period_month):02d}"
-            client_list = get_client_list(workflow_kwargs["agg"])
+            agg = self.zip_agg_var.get()
+            client_list = get_client_list(agg)
             invoices_to_ship = scan_for_invoices(
                 client_list,
                 period_year,
                 period_month,
-                workflow_kwargs["agg"],
+                agg,
             )
-            email_shipment = prep_invoice_zips(invoices_to_ship, workflow_kwargs.get("zip_output_dir"), agg=workflow_kwargs["agg"])
+            email_shipment = prep_invoice_zips(invoices_to_ship, workflow_kwargs.get("zip_output_dir"), agg=agg)
             rows = [
                 (
                     shipment.get("head_office_name") or Path(shipment["zip_path"]).stem,

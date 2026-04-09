@@ -9,7 +9,8 @@ from src.backend.db.db import (
     get_client,
     get_invoices,
     get_client_email,
-    get_soa_by_head_office
+    get_soa_by_head_office,
+    get_all_invoices,
 )
 from src.backend.utility.packaging import collect_files_to_zip
 from src.backend.utility.send import ClientBatch, SMTPConfig, send_all_emails
@@ -18,7 +19,7 @@ from src.backend.utility.send import ClientBatch, SMTPConfig, send_all_emails
 
 
 
-_VALID_AGG = {"head_office", "customer_number"}
+_VALID_AGG = {"head_office", "customer_number", "ship_name"}
 
 
 def scan_for_invoices(
@@ -39,18 +40,32 @@ def scan_for_invoices(
 
     for client in client_list:
 
-        kwargs = {agg: client}
+        if agg == "ship_name":
+            invoices = get_invoices(ship_name=client, period_month=period_str)
+            invoices += get_invoices(ship_name=client, period_month=next_period_str)
+            # Resolve SOA via the customer_number on the first invoice
+            head_office = None
+            soa_path = None
+            head_office_name = None
+            if invoices:
+                client_rows = get_client(customer_number=invoices[0]["customer_number"])
+                if client_rows:
+                    head_office = client_rows[0]["head_office"]
+                    soa_rows = get_soa_by_head_office(head_office=head_office)
+                    soa_path = soa_rows[0]["soa_file_path"] if soa_rows else None
+                    head_office_name = soa_rows[0]["head_office_name"] if soa_rows else None
+        else:
+            kwargs = {agg: client}
+            client_rows = get_client(**kwargs)
+            if not client_rows:
+                raise ValueError(f"Client not found in client list: {client!r}")
+            head_office = client_rows[0]['head_office']
+            soa_rows = get_soa_by_head_office(head_office=head_office)
+            soa_path = soa_rows[0]["soa_file_path"] if soa_rows else None
+            head_office_name = soa_rows[0]["head_office_name"] if soa_rows else None
+            invoices = get_invoices(**{agg: client}, period_month=period_str)
+            invoices += get_invoices(**{agg: client}, period_month=next_period_str)
 
-        client_rows = get_client(**kwargs)
-        if not client_rows:
-            raise ValueError(f"Client not found in database: {client!r}")
-        head_office = client_rows[0]['head_office']
-        soa_rows = get_soa_by_head_office(head_office=head_office)
-        soa_path = soa_rows[0]["soa_file_path"] if soa_rows else None
-        head_office_name = soa_rows[0]["head_office_name"] if soa_rows else None
-
-        invoices = get_invoices(**{agg: client}, period_month=period_str)
-        invoices += get_invoices(**{agg: client}, period_month=next_period_str)
         invoices_to_ship[client] = [
             {
                 "head_office_name": head_office_name,
@@ -65,6 +80,31 @@ def scan_for_invoices(
         ]
 
     return invoices_to_ship
+
+
+def get_excluded_invoices(invoices_to_ship: dict) -> list[dict]:
+    """Return all scanned invoices that are not included in invoices_to_ship."""
+    included_paths = {
+        inv["invoice_path"]
+        for invs in invoices_to_ship.values()
+        for inv in invs
+        if inv.get("invoice_path")
+    }
+    return [
+        {
+            "client_aggregate": row["head_office"] or row["customer_number"],
+            "head_office_name": "",
+            "customer_number": row["customer_number"],
+            "ship_name": row["ship_name"],
+            "invoice_number": row["tax_invoice_no"],
+            "invoice_date": row["invoice_date"],
+            "invoice_path": row["inv_file_path"],
+            "soa_path": None,
+        }
+        for row in get_all_invoices()
+        if row["inv_file_path"] not in included_paths
+    ]
+
 
 def prep_invoice_zips(
     invoices_to_ship: dict[str, list[dict[str, str | None]]],
@@ -106,7 +146,11 @@ def prep_invoice_zips(
 
         zip_path = collect_files_to_zip(files_to_zip_paths, base_zip_dir / f"{safe_stem}.zip")
 
-        email_list = get_client_email(**{agg: client_key})
+        if agg == "ship_name":
+            customer_number = invoices[0].get("customer_number") if invoices else None
+            email_list = get_client_email(customer_number=customer_number) if customer_number else []
+        else:
+            email_list = get_client_email(**{agg: client_key})
         email_shipment.append(
             {
                 "zip_path": zip_path,
