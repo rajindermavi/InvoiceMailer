@@ -70,12 +70,15 @@ class ZipTab:
             period_str = f"{int(period_year)}-{int(period_month):02d}"
             agg = self.zip_agg_var.get()
             client_list = get_client_list(agg)
-            invoices_to_ship = scan_for_invoices(
+            invoices_to_ship, missing = scan_for_invoices(
                 client_list,
                 period_year,
                 period_month,
                 agg,
             )
+            if missing:
+                msg = "The following were not found in the client list and were skipped:\n" + "\n".join(f"  • {m}" for m in missing)
+                self.root.after(0, lambda m=msg: messagebox.showwarning("Missing Clients", m))
             email_shipment = prep_invoice_zips(invoices_to_ship, workflow_kwargs.get("zip_output_dir"), agg=agg)
             rows = [
                 (

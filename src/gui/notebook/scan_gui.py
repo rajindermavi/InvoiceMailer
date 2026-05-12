@@ -245,7 +245,10 @@ class ScanTab:
             selected_head_offices = [ho for ho, checked in self._client_checked.items() if checked]
             client_list = get_clients_by_head_offices(selected_head_offices, agg)
 
-            invoices_to_ship = scan_for_invoices(client_list, period_year, period_month, agg)
+            invoices_to_ship, missing = scan_for_invoices(client_list, period_year, period_month, agg)
+            if missing:
+                msg = "The following were not found in the client list and were skipped:\n" + "\n".join(f"  • {m}" for m in missing)
+                self.root.after(0, lambda m=msg: messagebox.showwarning("Missing Clients", m))
             rows = self._flatten_invoice_rows(invoices_to_ship)
             excl = self._flatten_excluded_rows(get_excluded_invoices(invoices_to_ship))
             self.root.after(0, lambda r=rows, x=excl, w=skipped: self._on_invoices_scan_complete(r, x, w))

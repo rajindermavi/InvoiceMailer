@@ -37,6 +37,7 @@ def scan_for_invoices(
     next_year = base_year + 1 if base_month == 12 else base_year
     next_period_str = f"{next_year}-{next_month:02d}"
     invoices_to_ship: dict[str, list[dict[str, str | None]]] = {}
+    missing_clients: list[str] = []
 
     for client in client_list:
 
@@ -58,7 +59,8 @@ def scan_for_invoices(
             kwargs = {agg: client}
             client_rows = get_client(**kwargs)
             if not client_rows:
-                raise ValueError(f"Client not found in client list: {client!r}")
+                missing_clients.append(client)
+                continue
             head_office = client_rows[0]['head_office']
             soa_rows = get_soa_by_head_office(head_office=head_office)
             soa_path = soa_rows[0]["soa_file_path"] if soa_rows else None
@@ -79,7 +81,7 @@ def scan_for_invoices(
             for inv in invoices
         ]
 
-    return invoices_to_ship
+    return invoices_to_ship, missing_clients
 
 
 def get_excluded_invoices(invoices_to_ship: dict) -> list[dict]:
