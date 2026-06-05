@@ -170,6 +170,17 @@ def send_all_emails(
 # Transport implementations                                                    #
 # --------------------------------------------------------------------------- #
 
+def _normalize_ms_authority(ms_authority: str) -> str:
+    authority = (ms_authority or "").strip().lower()
+    if authority in {"organizations", "organization"}:
+        return "organization"
+    if authority in {"consumers", "consumer"}:
+        return "consumer"
+    raise ValueError(
+        "MS authority must be 'organizations'/'organization' or 'consumers'/'consumer'"
+    )
+
+
 def _send_via_graph(
     batches: List[ClientBatch],
     *,
@@ -192,7 +203,7 @@ def _send_via_graph(
         msal_config={
             "email_address": ms_email_address,
             "client_id": ms_client_id,
-            "authority": ms_authority,
+            "authority": _normalize_ms_authority(ms_authority),
         },
         passphrase=passphrase,
     )

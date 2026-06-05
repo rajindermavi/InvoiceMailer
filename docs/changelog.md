@@ -82,6 +82,10 @@ Two patterns applied:
 **Logging for silent fallbacks**:
 - `utility/extract_pdf_text.py`: OCR library import failure now logs which package is missing. Tesseract runtime failure logs the error rather than returning `""` silently.
 
+### MS Auth authority normalization fix
+
+- `src/backend/utility/send.py`: plural MS authority values from GUI settings (`organizations`, `consumers`) are normalized to nicemail's expected singular forms (`organization`, `consumer`) before creating the `EmailClient`.
+
 ### Config credential failure logging (M2)
 
 Four silent `except Exception` paths in `SecureConfig` now call `self._log()` with the
