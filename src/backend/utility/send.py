@@ -43,6 +43,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 def normalize_recipients(email_list: list[str]) -> list[str]:
     """Split semicolon-separated entries, strip whitespace, drop empties and invalid addresses."""
     recipients: list[str] = []
+    seen: set[str] = set()
     for entry in email_list:
         if not entry:
             continue
@@ -53,6 +54,10 @@ def normalize_recipients(email_list: list[str]) -> list[str]:
             if not _EMAIL_RE.match(addr):
                 logger.warning("Skipping invalid email address: %r", addr)
                 continue
+            # Preserve order but avoid duplicates
+            if addr in seen:
+                continue
+            seen.add(addr)
             recipients.append(addr)
     return recipients
 

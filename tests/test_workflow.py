@@ -38,7 +38,7 @@ def test_scan_for_invoices_builds_per_client_results(monkeypatch):
     monkeypatch.setattr(workflow, "get_soa_by_head_office", fake_get_soa_by_head_office)
     monkeypatch.setattr(workflow, "get_invoices", fake_get_invoices)
 
-    result = workflow.scan_for_invoices(clients, 2024, 5, "customer_number")
+    result,_ = workflow.scan_for_invoices(clients, 2024, 5, "customer_number")
 
     assert set(result.keys()) == set(clients)
     entries = result["CUST1"]

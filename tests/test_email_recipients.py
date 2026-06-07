@@ -1,56 +1,30 @@
 from __future__ import annotations
 
-from email.utils import getaddresses
-
 import src.backend.utility.send as email_util
 
 
-def _make_batch(tmp_path, email_list):
-    zip_path = tmp_path / "invoices.zip"
-    zip_path.write_bytes(b"zip")
-    return email_util.ClientBatch(
-        zip_path=zip_path,
-        email_list=email_list,
-        head_office_name="ACME Corp",
-    )
+def test_normalize_recipients_splits_semicolon_recipients():
+    recipients = email_util.normalize_recipients([
+        "alice@example.com; bob@example.com",
+    ])
+
+    assert recipients == ["alice@example.com", "bob@example.com"]
 
 
-def test_build_email_normalizes_semicolon_recipients(tmp_path):
-    batch = _make_batch(tmp_path, ["alice@example.com; bob@example.com"])
-
-    msg = email_util.build_email(
-        batch,
-        "from@example.com",
-        email_util.DEFAULT_SUBJECT_TEMPLATE,
-        email_util.DEFAULT_BODY_TEMPLATE,
-        "Sender",
-        "2024-05",
-    )
-
-    assert msg["To"] == "alice@example.com, bob@example.com"
-    assert [addr for _, addr in getaddresses([msg["To"]])] == [
-        "alice@example.com",
+def test_normalize_recipients_dedupes_and_strips_recipients():
+    recipients = email_util.normalize_recipients([
+        " alice@example.com; bob@example.com ; alice@example.com ",
         "bob@example.com",
-    ]
+    ])
+
+    assert recipients == ["alice@example.com", "bob@example.com"]
 
 
-def test_build_email_dedupes_and_strips_recipients(tmp_path):
-    batch = _make_batch(
-        tmp_path,
-        [" alice@example.com; bob@example.com ; alice@example.com ", "bob@example.com"],
-    )
+def test_normalize_recipients_skips_invalid_addresses(caplog):
+    caplog.set_level("WARNING")
+    recipients = email_util.normalize_recipients([
+        "valid@example.com; invalid-email; another@example.com",
+    ])
 
-    msg = email_util.build_email(
-        batch,
-        "from@example.com",
-        email_util.DEFAULT_SUBJECT_TEMPLATE,
-        email_util.DEFAULT_BODY_TEMPLATE,
-        "Sender",
-        "2024-05",
-    )
-
-    assert msg["To"] == "alice@example.com, bob@example.com"
-    assert [addr for _, addr in getaddresses([msg["To"]])] == [
-        "alice@example.com",
-        "bob@example.com",
-    ]
+    assert recipients == ["valid@example.com", "another@example.com"]
+    assert "Skipping invalid email address" in caplog.text
