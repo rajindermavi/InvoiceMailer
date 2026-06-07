@@ -263,7 +263,7 @@ wheels = [
 
 [[package]]
 name = "invoicemailer"
-version = "0.2.2"
+version = "0.2.3"
 source = { virtual = "." }
 dependencies = [
     { name = "aiosmtpd" },
@@ -285,7 +285,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=46.0.7" },
     { name = "keyring", specifier = ">=25.7.0" },
     { name = "msal", specifier = ">=1.35.1" },
-    { name = "nicemail", specifier = ">=0.2.2" },
+    { name = "nicemail", specifier = ">=0.2.3" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pymupdf", specifier = ">=1.27.2.2" },
     { name = "pytest" },
@@ -378,7 +378,7 @@ wheels = [
 
 [[package]]
 name = "nicemail"
-version = "0.2.2"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
@@ -386,9 +386,9 @@ dependencies = [
     { name = "platformdirs" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/83/b7/8efde027c5a1ae84bff211f14dcf3985eea1b34257451156c63f412e3b50/nicemail-0.2.2.tar.gz", hash = "sha256:fa59cba6b6007a3bfa548b76369e7cbd37fd383c5c1a3363a446554a725d87b1", size = 28525, upload-time = "2026-04-09T22:41:06.437Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/34/101c8c26264ac63e9e80be84d1c37bfe27a96b11d98eb63ec0d977a4e088/nicemail-0.2.3.tar.gz", hash = "sha256:9c72f7af207a02be1760d9c50604f11400533d68f4a37b044bdb4d7508c6e08f", size = 28856, upload-time = "2026-06-07T06:16:09.885Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/52/be/8b84ce476aae7bd03ee5f6bfea9dbef296c69d281a6eb01b66c5b58aa209/nicemail-0.2.2-py3-none-any.whl", hash = "sha256:9054ab39697d09cbbc58ca1d59e57c15863e96fd16df8e31b18956f98f7f2582", size = 33438, upload-time = "2026-04-09T22:41:05.183Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/01/14b93867f787f9a46d122667abb339b4bf948d3df5f3732cb6886c8fdd68/nicemail-0.2.3-py3-none-any.whl", hash = "sha256:6256e0f7d7b3390e8ff2f7a98e99d93653583c12a1afad2143b7ced50cd04ef5", size = 33696, upload-time = "2026-06-07T06:16:08.806Z" },
 ]
 
 [[package]]
