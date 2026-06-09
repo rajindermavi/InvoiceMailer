@@ -4,6 +4,9 @@ MS Graph path: nicemail EmailClient handles OAuth token acquisition and sending.
 """
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 import logging
 import re
 import string
@@ -175,6 +178,51 @@ def send_all_emails(
 # Transport implementations                                                    #
 # --------------------------------------------------------------------------- #
 
+_FERNET_MARKER = b"NICEMAIL_FERNET_V1\n"
+_KDF_SALT = b"NICEMAIL_SECURECONFIG_V1"
+
+
+class _PassphraseSecureConfig:
+    """
+    Drop-in replacement for nicemail's SecureConfig that uses passphrase-based
+    Fernet only — no DPAPI, no keyring. Injected into EmailClient.secure_config
+    to avoid the Windows DPAPI decryption failure when the key context changes.
+
+    Uses the same key derivation and file path as nicemail so token caches
+    written here are readable by a fixed nicemail build, and vice versa.
+    """
+
+    def __init__(self, passphrase: str | bytes) -> None:
+        from cryptography.fernet import Fernet
+        from platformdirs import user_config_dir
+
+        if isinstance(passphrase, str):
+            passphrase = passphrase.encode("utf-8")
+        raw_key = hashlib.pbkdf2_hmac("sha256", passphrase, _KDF_SALT, 390_000, dklen=32)
+        self._fernet = Fernet(base64.urlsafe_b64encode(raw_key))
+        self._path = Path(user_config_dir("nicemail", appauthor=False)) / "config.enc"
+
+    def load(self) -> dict:
+        if not self._path.exists():
+            return {}
+        raw = self._path.read_bytes()
+        payload = raw[len(_FERNET_MARKER):] if raw.startswith(_FERNET_MARKER) else raw
+        try:
+            return json.loads(self._fernet.decrypt(payload).decode("utf-8"))
+        except Exception:
+            # File was encrypted with a different key or method (e.g. DPAPI).
+            # Return empty so the auth flow runs fresh rather than crashing.
+            logger.warning(
+                "Could not decrypt nicemail config at %s; starting fresh auth.", self._path
+            )
+            return {}
+
+    def save(self, config_dict: dict) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        encrypted = self._fernet.encrypt(json.dumps(config_dict, indent=2).encode("utf-8"))
+        self._path.write_bytes(_FERNET_MARKER + encrypted)
+
+
 def _normalize_ms_authority(ms_authority: str) -> str:
     authority = (ms_authority or "").strip().lower()
     if authority in {"organizations", "organization"}:
@@ -212,6 +260,8 @@ def _send_via_graph(
         },
         passphrase=passphrase,
     )
+    if passphrase is not None:
+        client.secure_config = _PassphraseSecureConfig(passphrase)
 
     for batch in batches:
         subject, body = _render_templates(batch, subject_template, body_template, sender_name, period)
